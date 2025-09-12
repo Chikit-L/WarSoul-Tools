@@ -1,5 +1,6 @@
 import { logMessage } from "./utils.js";
 import { registMessageHandler } from "./connection.js";
+import { equipmentsData } from "./equipments.js";
 
 export const characterInfo = {};
 
