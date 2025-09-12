@@ -1,0 +1,9 @@
+{
+  "@match": [
+    "https://aring.cc/awakening-of-war-soul-ol/*"
+  ],
+  "@icon": "https://www.milkywayidle.com/favicon.svg",
+  "@description": "WarSoul实用工具",
+  "@license": "GPL-3.0",
+  "@include": "https://aring.cc/awakening-of-war-soul-ol/"
+}
