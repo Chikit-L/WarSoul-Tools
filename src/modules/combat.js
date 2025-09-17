@@ -55,7 +55,7 @@ export function parseFightTime(timeStr) {
 }
 
 
-// 实际攻速统计
+// Actual attack speed calculation
 const atkList = [];
 
 registMessageHandler(/^42\["fightRes/, (obj) => {

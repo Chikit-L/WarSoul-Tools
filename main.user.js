@@ -216,20 +216,6 @@
     }
   }, 10000); // 每10秒清理一次
 
-  const equipmentsData = {};
-  registHTTPRequestHandler(/awakening-of-war-soul-ol\/socket\.io/, /.*/, /^430.+/, res => {
-    Object.assign(equipmentsData, res[0].data);
-    logMessage(`Equipments Data Updated, total ${Object.keys(equipmentsData).length} items`);
-    return res;
-  });
-
-  const characterInfo = {};
-  registMessageHandler(/^434/, obj => {
-    Object.assign(characterInfo, obj[0].data);
-    logMessage(`Character Info Updated ${characterInfo.id}`);
-    return obj;
-  });
-
   var commonjsGlobal = typeof globalThis !== 'undefined' ? globalThis : typeof window !== 'undefined' ? window : typeof global !== 'undefined' ? global : typeof self !== 'undefined' ? self : {};
 
   var check = function (it) {
@@ -292,12 +278,12 @@
 
   var toString = {}.toString;
 
-  var classofRaw = function (it) {
+  var classofRaw$1 = function (it) {
     return toString.call(it).slice(8, -1);
   };
 
   var fails$6 = fails$8;
-  var classof = classofRaw;
+  var classof$2 = classofRaw$1;
 
   var split = ''.split;
 
@@ -307,7 +293,7 @@
     // eslint-disable-next-line no-prototype-builtins -- safe
     return !Object('z').propertyIsEnumerable(0);
   }) ? function (it) {
-    return classof(it) == 'String' ? split.call(it, '') : Object(it);
+    return classof$2(it) == 'String' ? split.call(it, '') : Object(it);
   } : Object;
 
   // `RequireObjectCoercible` abstract operation
@@ -327,21 +313,21 @@
 
   // `IsCallable` abstract operation
   // https://tc39.es/ecma262/#sec-iscallable
-  var isCallable$c = function (argument) {
+  var isCallable$d = function (argument) {
     return typeof argument === 'function';
   };
 
-  var isCallable$b = isCallable$c;
+  var isCallable$c = isCallable$d;
 
   var isObject$5 = function (it) {
-    return typeof it === 'object' ? it !== null : isCallable$b(it);
+    return typeof it === 'object' ? it !== null : isCallable$c(it);
   };
 
   var global$b = global$c;
-  var isCallable$a = isCallable$c;
+  var isCallable$b = isCallable$d;
 
   var aFunction = function (argument) {
-    return isCallable$a(argument) ? argument : undefined;
+    return isCallable$b(argument) ? argument : undefined;
   };
 
   var getBuiltIn$4 = function (namespace, method) {
@@ -397,7 +383,7 @@
     && !Symbol.sham
     && typeof Symbol.iterator == 'symbol';
 
-  var isCallable$9 = isCallable$c;
+  var isCallable$a = isCallable$d;
   var getBuiltIn$2 = getBuiltIn$4;
   var USE_SYMBOL_AS_UID$1 = useSymbolAsUid;
 
@@ -405,7 +391,7 @@
     return typeof it == 'symbol';
   } : function (it) {
     var $Symbol = getBuiltIn$2('Symbol');
-    return isCallable$9($Symbol) && Object(it) instanceof $Symbol;
+    return isCallable$a($Symbol) && Object(it) instanceof $Symbol;
   };
 
   var tryToString$1 = function (argument) {
@@ -416,34 +402,34 @@
     }
   };
 
-  var isCallable$8 = isCallable$c;
+  var isCallable$9 = isCallable$d;
   var tryToString = tryToString$1;
 
   // `Assert: IsCallable(argument) is true`
-  var aCallable$4 = function (argument) {
-    if (isCallable$8(argument)) return argument;
+  var aCallable$7 = function (argument) {
+    if (isCallable$9(argument)) return argument;
     throw TypeError(tryToString(argument) + ' is not a function');
   };
 
-  var aCallable$3 = aCallable$4;
+  var aCallable$6 = aCallable$7;
 
   // `GetMethod` abstract operation
   // https://tc39.es/ecma262/#sec-getmethod
-  var getMethod$3 = function (V, P) {
+  var getMethod$4 = function (V, P) {
     var func = V[P];
-    return func == null ? undefined : aCallable$3(func);
+    return func == null ? undefined : aCallable$6(func);
   };
 
-  var isCallable$7 = isCallable$c;
+  var isCallable$8 = isCallable$d;
   var isObject$4 = isObject$5;
 
   // `OrdinaryToPrimitive` abstract operation
   // https://tc39.es/ecma262/#sec-ordinarytoprimitive
   var ordinaryToPrimitive$1 = function (input, pref) {
     var fn, val;
-    if (pref === 'string' && isCallable$7(fn = input.toString) && !isObject$4(val = fn.call(input))) return val;
-    if (isCallable$7(fn = input.valueOf) && !isObject$4(val = fn.call(input))) return val;
-    if (pref !== 'string' && isCallable$7(fn = input.toString) && !isObject$4(val = fn.call(input))) return val;
+    if (pref === 'string' && isCallable$8(fn = input.toString) && !isObject$4(val = fn.call(input))) return val;
+    if (isCallable$8(fn = input.valueOf) && !isObject$4(val = fn.call(input))) return val;
+    if (pref !== 'string' && isCallable$8(fn = input.toString) && !isObject$4(val = fn.call(input))) return val;
     throw TypeError("Can't convert object to primitive value");
   };
 
@@ -514,7 +500,7 @@
   var Symbol$1 = global$7.Symbol;
   var createWellKnownSymbol = USE_SYMBOL_AS_UID ? Symbol$1 : Symbol$1 && Symbol$1.withoutSetter || uid$1;
 
-  var wellKnownSymbol$4 = function (name) {
+  var wellKnownSymbol$8 = function (name) {
     if (!hasOwn$8(WellKnownSymbolsStore, name) || !(NATIVE_SYMBOL || typeof WellKnownSymbolsStore[name] == 'string')) {
       if (NATIVE_SYMBOL && hasOwn$8(Symbol$1, name)) {
         WellKnownSymbolsStore[name] = Symbol$1[name];
@@ -526,17 +512,17 @@
 
   var isObject$3 = isObject$5;
   var isSymbol$1 = isSymbol$2;
-  var getMethod$2 = getMethod$3;
+  var getMethod$3 = getMethod$4;
   var ordinaryToPrimitive = ordinaryToPrimitive$1;
-  var wellKnownSymbol$3 = wellKnownSymbol$4;
+  var wellKnownSymbol$7 = wellKnownSymbol$8;
 
-  var TO_PRIMITIVE = wellKnownSymbol$3('toPrimitive');
+  var TO_PRIMITIVE = wellKnownSymbol$7('toPrimitive');
 
   // `ToPrimitive` abstract operation
   // https://tc39.es/ecma262/#sec-toprimitive
   var toPrimitive$1 = function (input, pref) {
     if (!isObject$3(input) || isSymbol$1(input)) return input;
-    var exoticToPrim = getMethod$2(input, TO_PRIMITIVE);
+    var exoticToPrim = getMethod$3(input, TO_PRIMITIVE);
     var result;
     if (exoticToPrim) {
       if (pref === undefined) pref = 'default';
@@ -608,14 +594,14 @@
   var isObject$1 = isObject$5;
 
   // `Assert: Type(argument) is Object`
-  var anObject$9 = function (argument) {
+  var anObject$d = function (argument) {
     if (isObject$1(argument)) return argument;
     throw TypeError(String(argument) + ' is not an object');
   };
 
   var DESCRIPTORS$3 = descriptors;
   var IE8_DOM_DEFINE = ie8DomDefine;
-  var anObject$8 = anObject$9;
+  var anObject$c = anObject$d;
   var toPropertyKey = toPropertyKey$2;
 
   // eslint-disable-next-line es/no-object-defineproperty -- safe
@@ -624,9 +610,9 @@
   // `Object.defineProperty` method
   // https://tc39.es/ecma262/#sec-object.defineproperty
   objectDefineProperty.f = DESCRIPTORS$3 ? $defineProperty : function defineProperty(O, P, Attributes) {
-    anObject$8(O);
+    anObject$c(O);
     P = toPropertyKey(P);
-    anObject$8(Attributes);
+    anObject$c(Attributes);
     if (IE8_DOM_DEFINE) try {
       return $defineProperty(O, P, Attributes);
     } catch (error) { /* empty */ }
@@ -648,13 +634,13 @@
 
   var redefine$3 = {exports: {}};
 
-  var isCallable$6 = isCallable$c;
+  var isCallable$7 = isCallable$d;
   var store$1 = sharedStore;
 
   var functionToString = Function.toString;
 
   // this helper broken in `core-js@3.4.1-3.4.4`, so we can't use `shared` helper
-  if (!isCallable$6(store$1.inspectSource)) {
+  if (!isCallable$7(store$1.inspectSource)) {
     store$1.inspectSource = function (it) {
       return functionToString.call(it);
     };
@@ -663,12 +649,12 @@
   var inspectSource$2 = store$1.inspectSource;
 
   var global$5 = global$c;
-  var isCallable$5 = isCallable$c;
+  var isCallable$6 = isCallable$d;
   var inspectSource$1 = inspectSource$2;
 
   var WeakMap$1 = global$5.WeakMap;
 
-  var nativeWeakMap = isCallable$5(WeakMap$1) && /native code/.test(inspectSource$1(WeakMap$1));
+  var nativeWeakMap = isCallable$6(WeakMap$1) && /native code/.test(inspectSource$1(WeakMap$1));
 
   var shared$1 = shared$3.exports;
   var uid = uid$2;
@@ -768,7 +754,7 @@
   };
 
   var global$3 = global$c;
-  var isCallable$4 = isCallable$c;
+  var isCallable$5 = isCallable$d;
   var hasOwn$4 = hasOwnProperty_1;
   var createNonEnumerableProperty$3 = createNonEnumerableProperty$5;
   var setGlobal$1 = setGlobal$3;
@@ -786,7 +772,7 @@
     var noTargetGet = options ? !!options.noTargetGet : false;
     var name = options && options.name !== undefined ? options.name : key;
     var state;
-    if (isCallable$4(value)) {
+    if (isCallable$5(value)) {
       if (String(name).slice(0, 7) === 'Symbol(') {
         name = '[' + String(name).replace(/^Symbol\(([^)]*)\)/, '$1') + ']';
       }
@@ -811,7 +797,7 @@
     else createNonEnumerableProperty$3(O, key, value);
   // add fake Function#toString for correct work wrapped methods / constructors with methods like LoDash isNative
   })(Function.prototype, 'toString', function toString() {
-    return isCallable$4(this) && getInternalState$1(this).source || inspectSource(this);
+    return isCallable$5(this) && getInternalState$1(this).source || inspectSource(this);
   });
 
   var objectGetOwnPropertyNames = {};
@@ -854,19 +840,19 @@
 
   // `LengthOfArrayLike` abstract operation
   // https://tc39.es/ecma262/#sec-lengthofarraylike
-  var lengthOfArrayLike$1 = function (obj) {
+  var lengthOfArrayLike$2 = function (obj) {
     return toLength(obj.length);
   };
 
   var toIndexedObject$1 = toIndexedObject$3;
   var toAbsoluteIndex = toAbsoluteIndex$1;
-  var lengthOfArrayLike = lengthOfArrayLike$1;
+  var lengthOfArrayLike$1 = lengthOfArrayLike$2;
 
   // `Array.prototype.{ indexOf, includes }` methods implementation
   var createMethod = function (IS_INCLUDES) {
     return function ($this, el, fromIndex) {
       var O = toIndexedObject$1($this);
-      var length = lengthOfArrayLike(O);
+      var length = lengthOfArrayLike$1(O);
       var index = toAbsoluteIndex(fromIndex, length);
       var value;
       // Array#includes uses SameValueZero equality algorithm
@@ -940,11 +926,11 @@
   var getBuiltIn$1 = getBuiltIn$4;
   var getOwnPropertyNamesModule = objectGetOwnPropertyNames;
   var getOwnPropertySymbolsModule = objectGetOwnPropertySymbols;
-  var anObject$7 = anObject$9;
+  var anObject$b = anObject$d;
 
   // all object keys, includes non-enumerable and symbols
   var ownKeys$1 = getBuiltIn$1('Reflect', 'ownKeys') || function ownKeys(it) {
-    var keys = getOwnPropertyNamesModule.f(anObject$7(it));
+    var keys = getOwnPropertyNamesModule.f(anObject$b(it));
     var getOwnPropertySymbols = getOwnPropertySymbolsModule.f;
     return getOwnPropertySymbols ? keys.concat(getOwnPropertySymbols(it)) : keys;
   };
@@ -965,7 +951,7 @@
   };
 
   var fails$3 = fails$8;
-  var isCallable$3 = isCallable$c;
+  var isCallable$4 = isCallable$d;
 
   var replacement = /#|\.prototype\./;
 
@@ -973,7 +959,7 @@
     var value = data[normalize(feature)];
     return value == POLYFILL ? true
       : value == NATIVE ? false
-      : isCallable$3(detection) ? fails$3(detection)
+      : isCallable$4(detection) ? fails$3(detection)
       : !!detection;
   };
 
@@ -1060,14 +1046,14 @@
 
   var DESCRIPTORS = descriptors;
   var definePropertyModule = objectDefineProperty;
-  var anObject$6 = anObject$9;
+  var anObject$a = anObject$d;
   var objectKeys = objectKeys$1;
 
   // `Object.defineProperties` method
   // https://tc39.es/ecma262/#sec-object.defineproperties
   // eslint-disable-next-line es/no-object-defineproperties -- safe
   var objectDefineProperties = DESCRIPTORS ? Object.defineProperties : function defineProperties(O, Properties) {
-    anObject$6(O);
+    anObject$a(O);
     var keys = objectKeys(Properties);
     var length = keys.length;
     var index = 0;
@@ -1082,7 +1068,7 @@
 
   /* global ActiveXObject -- old IE, WSH */
 
-  var anObject$5 = anObject$9;
+  var anObject$9 = anObject$d;
   var defineProperties = objectDefineProperties;
   var enumBugKeys = enumBugKeys$3;
   var hiddenKeys = hiddenKeys$4;
@@ -1155,7 +1141,7 @@
   var objectCreate = Object.create || function create(O, Properties) {
     var result;
     if (O !== null) {
-      EmptyConstructor[PROTOTYPE] = anObject$5(O);
+      EmptyConstructor[PROTOTYPE] = anObject$9(O);
       result = new EmptyConstructor();
       EmptyConstructor[PROTOTYPE] = null;
       // add "__proto__" for Object.getPrototypeOf polyfill
@@ -1174,7 +1160,7 @@
   });
 
   var hasOwn$1 = hasOwnProperty_1;
-  var isCallable$2 = isCallable$c;
+  var isCallable$3 = isCallable$d;
   var toObject = toObject$2;
   var sharedKey = sharedKey$3;
   var CORRECT_PROTOTYPE_GETTER = correctPrototypeGetter;
@@ -1189,18 +1175,18 @@
     var object = toObject(O);
     if (hasOwn$1(object, IE_PROTO)) return object[IE_PROTO];
     var constructor = object.constructor;
-    if (isCallable$2(constructor) && object instanceof constructor) {
+    if (isCallable$3(constructor) && object instanceof constructor) {
       return constructor.prototype;
     } return object instanceof Object ? ObjectPrototype : null;
   };
 
   var fails$1 = fails$8;
-  var isCallable$1 = isCallable$c;
+  var isCallable$2 = isCallable$d;
   var getPrototypeOf = objectGetPrototypeOf;
   var redefine$1 = redefine$3.exports;
-  var wellKnownSymbol$2 = wellKnownSymbol$4;
+  var wellKnownSymbol$6 = wellKnownSymbol$8;
 
-  var ITERATOR = wellKnownSymbol$2('iterator');
+  var ITERATOR$2 = wellKnownSymbol$6('iterator');
   var BUGGY_SAFARI_ITERATORS = false;
 
   // `%IteratorPrototype%` object
@@ -1221,15 +1207,15 @@
   var NEW_ITERATOR_PROTOTYPE = IteratorPrototype$2 == undefined || fails$1(function () {
     var test = {};
     // FF44- legacy iterators case
-    return IteratorPrototype$2[ITERATOR].call(test) !== test;
+    return IteratorPrototype$2[ITERATOR$2].call(test) !== test;
   });
 
   if (NEW_ITERATOR_PROTOTYPE) IteratorPrototype$2 = {};
 
   // `%IteratorPrototype%[@@iterator]()` method
   // https://tc39.es/ecma262/#sec-%iteratorprototype%-@@iterator
-  if (!isCallable$1(IteratorPrototype$2[ITERATOR])) {
-    redefine$1(IteratorPrototype$2, ITERATOR, function () {
+  if (!isCallable$2(IteratorPrototype$2[ITERATOR$2])) {
+    redefine$1(IteratorPrototype$2, ITERATOR$2, function () {
       return this;
     });
   }
@@ -1240,22 +1226,22 @@
   };
 
   // https://github.com/tc39/proposal-iterator-helpers
-  var $$2 = _export;
+  var $$4 = _export;
   var global$1 = global$c;
   var anInstance = anInstance$1;
-  var isCallable = isCallable$c;
+  var isCallable$1 = isCallable$d;
   var createNonEnumerableProperty$1 = createNonEnumerableProperty$5;
   var fails = fails$8;
   var hasOwn = hasOwnProperty_1;
-  var wellKnownSymbol$1 = wellKnownSymbol$4;
+  var wellKnownSymbol$5 = wellKnownSymbol$8;
   var IteratorPrototype$1 = iteratorsCore.IteratorPrototype;
 
-  var TO_STRING_TAG$1 = wellKnownSymbol$1('toStringTag');
+  var TO_STRING_TAG$3 = wellKnownSymbol$5('toStringTag');
 
   var NativeIterator = global$1.Iterator;
 
   // FF56- have non-standard global helper `Iterator`
-  var FORCED = !isCallable(NativeIterator)
+  var FORCED = !isCallable$1(NativeIterator)
     || NativeIterator.prototype !== IteratorPrototype$1
     // FF44- non-standard `Iterator` passes previous tests
     || !fails(function () { NativeIterator({}); });
@@ -1264,8 +1250,8 @@
     anInstance(this, IteratorConstructor);
   };
 
-  if (!hasOwn(IteratorPrototype$1, TO_STRING_TAG$1)) {
-    createNonEnumerableProperty$1(IteratorPrototype$1, TO_STRING_TAG$1, 'Iterator');
+  if (!hasOwn(IteratorPrototype$1, TO_STRING_TAG$3)) {
+    createNonEnumerableProperty$1(IteratorPrototype$1, TO_STRING_TAG$3, 'Iterator');
   }
 
   if (FORCED || !hasOwn(IteratorPrototype$1, 'constructor') || IteratorPrototype$1.constructor === Object) {
@@ -1274,8 +1260,215 @@
 
   IteratorConstructor.prototype = IteratorPrototype$1;
 
-  $$2({ global: true, forced: FORCED }, {
+  $$4({ global: true, forced: FORCED }, {
     Iterator: IteratorConstructor
+  });
+
+  var iterators = {};
+
+  var wellKnownSymbol$4 = wellKnownSymbol$8;
+  var Iterators$1 = iterators;
+
+  var ITERATOR$1 = wellKnownSymbol$4('iterator');
+  var ArrayPrototype = Array.prototype;
+
+  // check on default Array iterator
+  var isArrayIteratorMethod$1 = function (it) {
+    return it !== undefined && (Iterators$1.Array === it || ArrayPrototype[ITERATOR$1] === it);
+  };
+
+  var aCallable$5 = aCallable$7;
+
+  // optional / simple context binding
+  var functionBindContext = function (fn, that, length) {
+    aCallable$5(fn);
+    if (that === undefined) return fn;
+    switch (length) {
+      case 0: return function () {
+        return fn.call(that);
+      };
+      case 1: return function (a) {
+        return fn.call(that, a);
+      };
+      case 2: return function (a, b) {
+        return fn.call(that, a, b);
+      };
+      case 3: return function (a, b, c) {
+        return fn.call(that, a, b, c);
+      };
+    }
+    return function (/* ...args */) {
+      return fn.apply(that, arguments);
+    };
+  };
+
+  var wellKnownSymbol$3 = wellKnownSymbol$8;
+
+  var TO_STRING_TAG$2 = wellKnownSymbol$3('toStringTag');
+  var test = {};
+
+  test[TO_STRING_TAG$2] = 'z';
+
+  var toStringTagSupport = String(test) === '[object z]';
+
+  var TO_STRING_TAG_SUPPORT = toStringTagSupport;
+  var isCallable = isCallable$d;
+  var classofRaw = classofRaw$1;
+  var wellKnownSymbol$2 = wellKnownSymbol$8;
+
+  var TO_STRING_TAG$1 = wellKnownSymbol$2('toStringTag');
+  // ES3 wrong here
+  var CORRECT_ARGUMENTS = classofRaw(function () { return arguments; }()) == 'Arguments';
+
+  // fallback for IE11 Script Access Denied error
+  var tryGet = function (it, key) {
+    try {
+      return it[key];
+    } catch (error) { /* empty */ }
+  };
+
+  // getting tag from ES6+ `Object.prototype.toString`
+  var classof$1 = TO_STRING_TAG_SUPPORT ? classofRaw : function (it) {
+    var O, tag, result;
+    return it === undefined ? 'Undefined' : it === null ? 'Null'
+      // @@toStringTag case
+      : typeof (tag = tryGet(O = Object(it), TO_STRING_TAG$1)) == 'string' ? tag
+      // builtinTag case
+      : CORRECT_ARGUMENTS ? classofRaw(O)
+      // ES3 arguments fallback
+      : (result = classofRaw(O)) == 'Object' && isCallable(O.callee) ? 'Arguments' : result;
+  };
+
+  var classof = classof$1;
+  var getMethod$2 = getMethod$4;
+  var Iterators = iterators;
+  var wellKnownSymbol$1 = wellKnownSymbol$8;
+
+  var ITERATOR = wellKnownSymbol$1('iterator');
+
+  var getIteratorMethod$2 = function (it) {
+    if (it != undefined) return getMethod$2(it, ITERATOR)
+      || getMethod$2(it, '@@iterator')
+      || Iterators[classof(it)];
+  };
+
+  var aCallable$4 = aCallable$7;
+  var anObject$8 = anObject$d;
+  var getIteratorMethod$1 = getIteratorMethod$2;
+
+  var getIterator$1 = function (argument, usingIterator) {
+    var iteratorMethod = arguments.length < 2 ? getIteratorMethod$1(argument) : usingIterator;
+    if (aCallable$4(iteratorMethod)) return anObject$8(iteratorMethod.call(argument));
+    throw TypeError(String(argument) + ' is not iterable');
+  };
+
+  var anObject$7 = anObject$d;
+  var getMethod$1 = getMethod$4;
+
+  var iteratorClose$2 = function (iterator, kind, value) {
+    var innerResult, innerError;
+    anObject$7(iterator);
+    try {
+      innerResult = getMethod$1(iterator, 'return');
+      if (!innerResult) {
+        if (kind === 'throw') throw value;
+        return value;
+      }
+      innerResult = innerResult.call(iterator);
+    } catch (error) {
+      innerError = true;
+      innerResult = error;
+    }
+    if (kind === 'throw') throw value;
+    if (innerError) throw innerResult;
+    anObject$7(innerResult);
+    return value;
+  };
+
+  var anObject$6 = anObject$d;
+  var isArrayIteratorMethod = isArrayIteratorMethod$1;
+  var lengthOfArrayLike = lengthOfArrayLike$2;
+  var bind = functionBindContext;
+  var getIterator = getIterator$1;
+  var getIteratorMethod = getIteratorMethod$2;
+  var iteratorClose$1 = iteratorClose$2;
+
+  var Result = function (stopped, result) {
+    this.stopped = stopped;
+    this.result = result;
+  };
+
+  var iterate$2 = function (iterable, unboundFunction, options) {
+    var that = options && options.that;
+    var AS_ENTRIES = !!(options && options.AS_ENTRIES);
+    var IS_ITERATOR = !!(options && options.IS_ITERATOR);
+    var INTERRUPTED = !!(options && options.INTERRUPTED);
+    var fn = bind(unboundFunction, that, 1 + AS_ENTRIES + INTERRUPTED);
+    var iterator, iterFn, index, length, result, next, step;
+
+    var stop = function (condition) {
+      if (iterator) iteratorClose$1(iterator, 'normal', condition);
+      return new Result(true, condition);
+    };
+
+    var callFn = function (value) {
+      if (AS_ENTRIES) {
+        anObject$6(value);
+        return INTERRUPTED ? fn(value[0], value[1], stop) : fn(value[0], value[1]);
+      } return INTERRUPTED ? fn(value, stop) : fn(value);
+    };
+
+    if (IS_ITERATOR) {
+      iterator = iterable;
+    } else {
+      iterFn = getIteratorMethod(iterable);
+      if (!iterFn) throw TypeError(String(iterable) + ' is not iterable');
+      // optimisation for array iterators
+      if (isArrayIteratorMethod(iterFn)) {
+        for (index = 0, length = lengthOfArrayLike(iterable); length > index; index++) {
+          result = callFn(iterable[index]);
+          if (result && result instanceof Result) return result;
+        } return new Result(false);
+      }
+      iterator = getIterator(iterable, iterFn);
+    }
+
+    next = iterator.next;
+    while (!(step = next.call(iterator)).done) {
+      try {
+        result = callFn(step.value);
+      } catch (error) {
+        iteratorClose$1(iterator, 'throw', error);
+      }
+      if (typeof result == 'object' && result && result instanceof Result) return result;
+    } return new Result(false);
+  };
+
+  // https://github.com/tc39/proposal-iterator-helpers
+  var $$3 = _export;
+  var iterate$1 = iterate$2;
+  var aCallable$3 = aCallable$7;
+  var anObject$5 = anObject$d;
+
+  $$3({ target: 'Iterator', proto: true, real: true }, {
+    find: function find(fn) {
+      anObject$5(this);
+      aCallable$3(fn);
+      return iterate$1(this, function (value, stop) {
+        if (fn(value)) return stop(value);
+      }, { IS_ITERATOR: true, INTERRUPTED: true }).result;
+    }
+  });
+
+  // https://github.com/tc39/proposal-iterator-helpers
+  var $$2 = _export;
+  var iterate = iterate$2;
+  var anObject$4 = anObject$d;
+
+  $$2({ target: 'Iterator', proto: true, real: true }, {
+    forEach: function forEach(fn) {
+      iterate(anObject$4(this), fn, { IS_ITERATOR: true });
+    }
   });
 
   var redefine = redefine$3.exports;
@@ -1285,14 +1478,14 @@
     return target;
   };
 
-  var aCallable$2 = aCallable$4;
-  var anObject$4 = anObject$9;
+  var aCallable$2 = aCallable$7;
+  var anObject$3 = anObject$d;
   var create = objectCreate;
   var createNonEnumerableProperty = createNonEnumerableProperty$5;
   var redefineAll = redefineAll$1;
-  var wellKnownSymbol = wellKnownSymbol$4;
+  var wellKnownSymbol = wellKnownSymbol$8;
   var InternalStateModule = internalState;
-  var getMethod$1 = getMethod$3;
+  var getMethod = getMethod$4;
   var IteratorPrototype = iteratorsCore.IteratorPrototype;
 
   var setInternalState = InternalStateModule.set;
@@ -1320,14 +1513,14 @@
         var state = getInternalState(this);
         var iterator = state.iterator;
         state.done = true;
-        var $$return = getMethod$1(iterator, 'return');
-        return { done: true, value: $$return ? anObject$4($$return.call(iterator, value)).value : value };
+        var $$return = getMethod(iterator, 'return');
+        return { done: true, value: $$return ? anObject$3($$return.call(iterator, value)).value : value };
       },
       'throw': function (value) {
         var state = getInternalState(this);
         var iterator = state.iterator;
         state.done = true;
-        var $$throw = getMethod$1(iterator, 'throw');
+        var $$throw = getMethod(iterator, 'throw');
         if ($$throw) return $$throw.call(iterator, value);
         throw value;
       }
@@ -1340,31 +1533,8 @@
     return IteratorProxy;
   };
 
-  var anObject$3 = anObject$9;
-  var getMethod = getMethod$3;
-
-  var iteratorClose$1 = function (iterator, kind, value) {
-    var innerResult, innerError;
-    anObject$3(iterator);
-    try {
-      innerResult = getMethod(iterator, 'return');
-      if (!innerResult) {
-        if (kind === 'throw') throw value;
-        return value;
-      }
-      innerResult = innerResult.call(iterator);
-    } catch (error) {
-      innerError = true;
-      innerResult = error;
-    }
-    if (kind === 'throw') throw value;
-    if (innerError) throw innerResult;
-    anObject$3(innerResult);
-    return value;
-  };
-
-  var anObject$2 = anObject$9;
-  var iteratorClose = iteratorClose$1;
+  var anObject$2 = anObject$d;
+  var iteratorClose = iteratorClose$2;
 
   // call something on iterator step with safe closing on error
   var callWithSafeIterationClosing$2 = function (iterator, fn, value, ENTRIES) {
@@ -1377,53 +1547,179 @@
 
   // https://github.com/tc39/proposal-iterator-helpers
   var $$1 = _export;
-  var aCallable$1 = aCallable$4;
-  var anObject$1 = anObject$9;
+  var aCallable$1 = aCallable$7;
+  var anObject$1 = anObject$d;
   var createIteratorProxy$1 = iteratorCreateProxy;
   var callWithSafeIterationClosing$1 = callWithSafeIterationClosing$2;
 
   var IteratorProxy$1 = createIteratorProxy$1(function (args) {
     var iterator = this.iterator;
-    var filterer = this.filterer;
-    var next = this.next;
-    var result, done, value;
-    while (true) {
-      result = anObject$1(next.apply(iterator, args));
-      done = this.done = !!result.done;
-      if (done) return;
-      value = result.value;
-      if (callWithSafeIterationClosing$1(iterator, filterer, value)) return value;
-    }
+    var result = anObject$1(this.next.apply(iterator, args));
+    var done = this.done = !!result.done;
+    if (!done) return callWithSafeIterationClosing$1(iterator, this.mapper, result.value);
   });
 
   $$1({ target: 'Iterator', proto: true, real: true }, {
-    filter: function filter(filterer) {
+    map: function map(mapper) {
       return new IteratorProxy$1({
         iterator: anObject$1(this),
-        filterer: aCallable$1(filterer)
+        mapper: aCallable$1(mapper)
       });
     }
   });
 
+  const equipmentsData = {};
+  registHTTPRequestHandler(/awakening-of-war-soul-ol\/socket\.io/, /.*/, /^430.+/, res => {
+    Object.assign(equipmentsData, res[0].data);
+    logMessage(`Equipments Data Updated, total ${Object.keys(equipmentsData).length} items`);
+    return res;
+  });
+  const runeData = {};
+  registMessageHandler(/^431/, obj => {
+    Object.assign(runeData, obj[0].data);
+    logMessage(`Rune Data Updated, total ${runeData.runeCollection.length} runes`);
+    return obj;
+  });
+  const starAttrMap = {
+    1: stat => {
+      stat.atk += 2;
+    },
+    // 攻击 + 2
+    2: stat => {
+      stat.atksp += 1;
+    },
+    // 攻击速度 + 1%
+    3: stat => {
+      stat.crt += 2;
+    },
+    // 暴击率 + 2%
+    4: stat => {
+      stat.crtd += 6;
+    },
+    // 暴击伤害 + 6%
+    5: stat => {
+      stat.heat += 3;
+    },
+    // 破防 + 3
+    6: stat => {
+      stat.hr += 1;
+    } // 命中率 + 1%
+  };
+  const equipmentEnhanceMap = {
+    'weapon': (stat, level) => {
+      stat.atk += level * 2.4;
+    },
+    'helmet': (stat, level) => {
+      stat.heat += level * 1.6;
+    },
+    'armor': (stat, level) => {
+      stat.hr += level * 0.6;
+    },
+    'shoes': (stat, level) => {
+      stat.atksp += level * 0.6;
+    },
+    'jewelry': (stat, level) => {
+      stat.crt += level * 0.6;
+      stat.crtd += level * 1.4;
+    }
+  };
+
+  const characterInfo = {};
+
+  // Update character info
+  registMessageHandler(/^434/, obj => {
+    if (!obj[0].data.itemList) {
+      return obj;
+    }
+    Object.assign(characterInfo, obj[0].data);
+    logMessage(`Character Info Updated ${characterInfo.id}`);
+    setTimeout(() => {
+      const parsed = parseCharacterEquipment();
+      characterInfo.parsed = parsed;
+      logMessage(`Character Equipment Parsed:`);
+      logMessage(parsed);
+    }, 1000);
+    return obj;
+  });
+
+  // See user info
+  registMessageHandler(/^4324/, obj => {
+    logMessage(`Character Info Updated:`);
+    logMessage(obj);
+    return obj;
+  });
+  function parseCharacterEquipment() {
+    const weaponList = characterInfo.equippedList || {};
+    Object.entries(weaponList).forEach(([key, value]) => {
+      const item = characterInfo.itemList.find(item => item.id === value);
+      item.origin = equipmentsData[item.equipId];
+      weaponList[key] = item;
+    });
+    const fightPet = (characterInfo.petList || []).find(pet => pet.id == characterInfo.fightPetId);
+    const runeList = (characterInfo.runeEquippedList || []).map(rune => {
+      rune = characterInfo.runeList.find(item => item.id === rune);
+      rune.origin = runeData.runeCollection[rune.runeId];
+      return rune;
+    });
+    const stats = {
+      atk: 100,
+      atksp: 100,
+      crt: 0,
+      crtd: 150,
+      heat: 0,
+      hr: 100
+    };
+    Object.entries(weaponList).forEach(([key, value]) => {
+      for (let starType of value.starAttrs || []) {
+        starAttrMap[starType](stats);
+      }
+      equipmentEnhanceMap[key](stats, value.reinforcedLevel);
+      Object.entries(value.origin.attrs.basic).forEach(([attr, val]) => {
+        stats[attr] += val;
+      });
+    });
+    for (let rune of runeList) {
+      Object.entries(rune.attrs.basic).forEach(([attr, val]) => {
+        stats[attr] += val;
+      });
+    }
+    Object.entries(fightPet?.fightAttrs || {}).forEach(([attr, val]) => {
+      stats[attr] += val;
+    });
+    return {
+      weaponList,
+      fightPet,
+      runeList,
+      stats
+    };
+  }
+
   // https://github.com/tc39/proposal-iterator-helpers
   var $ = _export;
-  var aCallable = aCallable$4;
-  var anObject = anObject$9;
+  var aCallable = aCallable$7;
+  var anObject = anObject$d;
   var createIteratorProxy = iteratorCreateProxy;
   var callWithSafeIterationClosing = callWithSafeIterationClosing$2;
 
   var IteratorProxy = createIteratorProxy(function (args) {
     var iterator = this.iterator;
-    var result = anObject(this.next.apply(iterator, args));
-    var done = this.done = !!result.done;
-    if (!done) return callWithSafeIterationClosing(iterator, this.mapper, result.value);
+    var filterer = this.filterer;
+    var next = this.next;
+    var result, done, value;
+    while (true) {
+      result = anObject(next.apply(iterator, args));
+      done = this.done = !!result.done;
+      if (done) return;
+      value = result.value;
+      if (callWithSafeIterationClosing(iterator, filterer, value)) return value;
+    }
   });
 
   $({ target: 'Iterator', proto: true, real: true }, {
-    map: function map(mapper) {
+    filter: function filter(filterer) {
       return new IteratorProxy({
         iterator: anObject(this),
-        mapper: aCallable(mapper)
+        filterer: aCallable(filterer)
       });
     }
   });
@@ -1475,7 +1771,7 @@
     return minutes * 60 + seconds;
   }
 
-  // 实际攻速统计
+  // Actual attack speed calculation
   const atkList = [];
   registMessageHandler(/^42\["fightRes/, obj => {
     const atkInfoList = obj[1].atkInfoList;
