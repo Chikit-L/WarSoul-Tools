@@ -70,7 +70,8 @@ function handleMessage(message) {
             try {
                 obj = handler(obj) || obj;
             } catch (error) {
-                logMessage(`Error in handler for ${obj.cmd}:`, error);
+                logMessage(`Error in WS handler for ${obj.regex}:`);
+                logMessage(error);
             }
         }
     }
