@@ -29,12 +29,95 @@ export const starAttrMap = {
 }
 
 export const equipmentEnhanceMap = {
-  'weapon': (stat, level) => {stat.atk += level * 2.4}, 
-  'helmet': (stat, level) => {stat.heat += level * 1.6},
-  'armor': (stat, level) => {stat.hr += level * 0.6},
-  'shoes': (stat, level) => {stat.atksp += level * 0.6},
+  'weapon': (stat, level) => {stat.atk += equipmentEnhanceTable.atk[level] || 0}, 
+  'helmet': (stat, level) => {stat.heat += equipmentEnhanceTable.heat[level] || 0},
+  'armor': (stat, level) => {stat.hr += equipmentEnhanceTable.rate[level] || 0},
+  'shoes': (stat, level) => {stat.atksp += equipmentEnhanceTable.rate[level] || 0},
   'jewelry': (stat, level) => {
-    stat.crt += level * 0.56
-    stat.crtd += level * 1.4
+    stat.crt += equipmentEnhanceTable.rate[level] || 0
+    stat.crtd += equipmentEnhanceTable.crtd[level] || 0
   },
+}
+
+const equipmentEnhanceTable = {
+  atk: {
+      1: 2,
+      2: 3,
+      3: 4,
+      4: 6,
+      5: 8,
+      6: 10,
+      7: 12,
+      8: 14,
+      9: 17,
+      10: 21,
+      11: 24,
+      12: 27,
+      13: 30,
+      14: 33,
+      15: 36,
+      16: 36,
+      17: 36,
+      18: 36
+  },
+  heat: {
+      1: 1,
+      2: 2,
+      3: 3,
+      4: 4,
+      5: 6,
+      6: 7,
+      7: 9,
+      8: 11,
+      9: 13,
+      10: 16,
+      11: 18,
+      12: 20,
+      13: 22,
+      14: 24,
+      15: 26,
+      16: 26,
+      17: 26,
+      18: 26
+  },
+  rate: {
+      1: .4,
+      2: .8,
+      3: 1.2,
+      4: 1.8,
+      5: 2.4,
+      6: 3.2,
+      7: 4,
+      8: 4.5,
+      9: 5,
+      10: 6,
+      11: 6.5,
+      12: 7,
+      13: 7.5,
+      14: 8,
+      15: 8.5,
+      16: 8.5,
+      17: 8.5,
+      18: 8.5
+  },
+  crtd: {
+      1: 1,
+      2: 2,
+      3: 3,
+      4: 4,
+      5: 5.5,
+      6: 7,
+      7: 8.5,
+      8: 10,
+      9: 12,
+      10: 13.5,
+      11: 15,
+      12: 16.5,
+      13: 18,
+      14: 19.5,
+      15: 21,
+      16: 21,
+      17: 21,
+      18: 21
+  }
 }

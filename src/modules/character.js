@@ -21,7 +21,7 @@ registMessageHandler(/^434\[/, (obj) => {
 });
 
 // See user info
-registMessageHandler(/^4324/, (obj) => {
+registMessageHandler(/^4324\[/, (obj) => {
     logMessage(`Other Character Info Updated:`);
     logMessage(obj);
     return obj;
@@ -101,7 +101,12 @@ function parseCharacterEquipment() {
     for (let rune of runeList) {
         // 符石基础属性
         Object.entries(rune.attrs.basic).forEach(([attr, val]) => {
-            stats[attr] += val;
+            // 系数
+            let p = 1.0;
+            if (attr === 'crt') {
+                p = 0.3;
+            }
+            stats[attr] += val * p;
         });
         // 符石特殊属性
         for (let effect of (rune.attrs?.special || [])) {
@@ -118,7 +123,12 @@ function parseCharacterEquipment() {
 
     // 宠物基础属性
     Object.entries(fightPet?.fightAttrs || {}).forEach(([attr, val]) => {
-        stats[attr] += val;
+        // 系数
+        let p = 1.0;
+        if (attr === 'crt') {
+            p = 0.3;
+        }
+        stats[attr] += val * p;
     });
 
     // 武器特效
