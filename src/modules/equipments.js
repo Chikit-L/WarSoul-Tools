@@ -19,6 +19,25 @@ registMessageHandler(/^431\[/, (obj) => {
   return obj;
 });
 
+export const relicData = loadFromLocalStorage("relicData", {});
+
+registMessageHandler(/^432\[/, (obj) => {
+  Object.assign(relicData, obj[0].data);
+  logMessage(`Relic Data Updated, total ${Object.keys(relicData).length} relics`);
+  saveToLocalStorage("relicData", relicData);
+  return obj;
+});
+
+export const darkGoldData = loadFromLocalStorage("darkGoldData", {});
+
+registMessageHandler(/^433\[/, (obj) => {
+  Object.assign(darkGoldData, obj[0].data);
+  logMessage(`Dark Gold Data Updated`);
+  saveToLocalStorage("darkGoldData", darkGoldData);
+  return obj;
+});
+
+
 export const starAttrMap = {
   1: (stat)=>{stat.atk += 2},      // 攻击 + 2
   2: (stat)=>{stat.atksp += 1},    // 攻击速度 + 1%
@@ -37,6 +56,38 @@ export const equipmentEnhanceMap = {
     stat.crt += equipmentEnhanceTable.rate[level] || 0
     stat.crtd += equipmentEnhanceTable.crtd[level] || 0
   },
+}
+
+export function weaponSpecialParse(stats, effect) {
+  if (stats[effect.key] !== undefined) {
+      const runeKey = `${effect.key}Rune`
+      // TODO: 更多词条支持
+      if (effect.key === 'split') {
+          const splitRate = effect.data.rate * (1 + stats.splitRune) / 100;
+          stats.split = stats.split + splitRate * effect.data.value;
+      } else if (effect.key === 'thump') {
+          stats.thump = stats.thump + effect.data.rate / 100 * effect.data.value
+      } else if (effect.key === 'swiftness') {
+          stats.swiftness += (effect.data.value - 1) + stats.swiftnessRune
+      } else if (runeKey in stats) {
+          stats[effect.key] += effect.data.value + stats[runeKey];
+      } else if (effect.data.value) {
+          stats[effect.key] += effect.data.value;
+      } else if (effect.data.multiplier) {
+          stats[effect.key] += effect.data.multiplier;
+      }
+  }
+}
+
+export const atkSpMap = {
+  1.001: 195,
+  1.112: 219,
+  1.251: 251,
+  1.430: 292,
+  1.700: 350,
+  2.003: 437,
+  2.504: 582,
+  3.340: 872,
 }
 
 const equipmentEnhanceTable = {

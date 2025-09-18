@@ -1,6 +1,6 @@
 import { logMessage } from "./utils.js";
-import { registMessageHandler, wsSend } from "./connection.js";
-import { equipmentEnhanceMap, equipmentsData, runeData, starAttrMap } from "./equipments.js";
+import { registMessageHandler, registSendHookHandler, wsSend } from "./connection.js";
+import { atkSpMap, darkGoldData, equipmentEnhanceMap, equipmentsData, relicData, runeData, starAttrMap, weaponSpecialParse } from "./equipments.js";
 
 export const characterInfo = {};
 
@@ -12,7 +12,7 @@ registMessageHandler(/^434\[/, (obj) => {
     Object.assign(characterInfo, obj[0].data);
     logMessage(`Character Info Updated ${characterInfo.id}`);
     setTimeout(() => {
-        const parsed = parseCharacterEquipment();
+        const parsed = parseCharacterEquipment(characterInfo);
         characterInfo.parsed = parsed;
         logMessage(`Character Equipment Parsed:`);
         logMessage(parsed);
@@ -31,31 +31,71 @@ registMessageHandler(/^434\[/, (obj) => {
 });
 
 // See user info
-registMessageHandler(/^4324\[/, (obj) => {
+registMessageHandler(/^4338\[/, (obj) => {
+    const playerData = obj[0].data;
     logMessage(`Other Character Info Updated:`);
-    logMessage(obj);
-    return obj;
+    logMessage(playerData);
+    return playerData;
+});
+
+registSendHookHandler(/\["seeUserInfo",/, (message) => {
+    const startNumber = parseInt(message.match(/^\d+/)?.[0]);
+    return {
+        responseRegex: new RegExp(`^${startNumber + 100}`),
+        handler: (obj, other) => {
+            const playerData = obj[0].data;
+            playerData.parsed = parseCharacterEquipment(playerData);
+            logMessage(`Other Character Info Updated:`);
+            logMessage(playerData.parsed);
+        }
+    }
 });
 
 export function getUserInfo(userId) {
     wsSend(`4224["seeUserInfo",{"userId":${userId}}]`);
 }
 
-function parseCharacterEquipment() {
-    const weaponList = (characterInfo.equippedList || {});
-    Object.entries(weaponList).forEach(([key, value]) => {
-        const item = characterInfo.itemList.find(item => item.id === value);
-        item.origin = equipmentsData[item.equipId];
-        weaponList[key] = item;
-    });
-
-    const fightPet = (characterInfo.petList || []).find(pet => pet.id == characterInfo.fightPetId);
-
-    const runeList = (characterInfo.runeEquippedList || []).map(rune => {
-        rune = characterInfo.runeList.find(item => item.id === rune);
-        rune.origin = runeData.runeCollection[rune.runeId];
-        return rune;
-    });
+function parseCharacterEquipment(character) {
+    let weaponList = (character.equippedList || {});
+    let fightPet = (character.petList || []).find(pet => pet.id == character.fightPetId);
+    let runeList = (character.runeEquippedList || []).filter(item => item !== "");
+    let relicList = (character.relicEquippedList || []).filter(item => item !== "");
+    if (character.itemList) {
+        // 玩家
+        Object.entries(weaponList).forEach(([key, value]) => {
+            const item = character.itemList.find(item => item.id === value);
+            item.origin = equipmentsData[item.equipId];
+            weaponList[key] = item;
+        });
+        runeList = runeList.map(rune => {
+            rune = character.runeList.find(item => item.id === rune);
+            rune.origin = runeData.runeCollection[rune.runeId];
+            return rune;
+        });
+        relicList = relicList.map(relic => {
+            relic = character.itemList.find(item => item.id === relic);
+            relic.origin = relicData[relic.relicId];
+            return relic;
+        });
+    } else {
+        // 其他人
+        weaponList = {};
+        for (let weapon of character.equipList) {
+            const origin = equipmentsData[weapon.equipId];
+            weaponList[origin.type] = {
+                origin: origin,
+                ...weapon
+            };
+        }
+        runeList = character.runeList.filter(item => item !== "").map(rune => {
+            rune.origin = runeData.runeCollection[rune.runeId];
+            return rune;
+        });
+        relicList = character.relicList.filter(item => item !== "").map(relic => {
+            relic.origin = relicData[relic.relicId];
+            return relic;
+        });
+    }
 
     const stats = {
         atk: 100,           // 攻击
@@ -84,6 +124,7 @@ function parseCharacterEquipment() {
         break: 0,           // 破阵：攻击力追加
         sharp: 0,           // 锋利：攻击时附加伤害
         tearInjury: 0,      // 裂创：暴击时额外真实伤害
+        shadowBlade: 0,     // 影刃：攻击时附加真实伤害
     };
 
     // 装备基础属性
@@ -105,15 +146,15 @@ function parseCharacterEquipment() {
             stats.ad += weapon.enchantAttr[1];
         }
         // 暗金属性
-        Object.entries(weapon?.darkGoldAttrs?.basic || {}).forEach(([attr, val]) => {
-            stats[attr] += val;
-        });
+        for (let effect of (weapon?.darkGoldAttrs?.basic || [])) {
+            stats[effect[0]] += effect[1] * darkGoldData.darkGoldBasicFactor[effect[0]];
+        }
     });
 
     // 符石
     for (let rune of runeList) {
         // 符石基础属性
-        const typeFactor = characterInfo.soulType == rune.origin.soulType ? 1.2 : 1.0;
+        const typeFactor = character.soulType == rune.origin.soulType ? 1.2 : 1.0;
         Object.entries(rune.attrs.basic).forEach(([attr, val]) => {
             // 系数
             const p = runeData.runeBasicFactor[attr] || 1.0;
@@ -134,6 +175,14 @@ function parseCharacterEquipment() {
         }
     }
 
+    // 圣物
+    for (let relic of relicList) {
+        // 圣物基础属性
+        Object.entries(relic.origin.attrs.basic).forEach(([attr, val]) => {
+            stats[attr] += val + ((relic.origin.grow?.basic[attr] || 0) * relic.count);
+        });
+    }
+
     // 宠物基础属性
     Object.entries(fightPet?.fightAttrs || {}).forEach(([attr, val]) => {
         // 系数
@@ -144,25 +193,17 @@ function parseCharacterEquipment() {
 
     // 武器特效
     Object.entries(weaponList).forEach(([weaponType, weapon]) => {
+        // 普通特效
         for (let effect of (weapon.origin?.attrs?.special || [])) {
-            if (stats[effect.key] !== undefined) {
-                const runeKey = `${effect.key}Rune`
-                // TODO: 更多词条支持
-                if (effect.key === 'split') {
-                    const splitRate = effect.data.rate * (1 + stats.splitRune) / 100;
-                    stats.split = stats.split + splitRate * effect.data.value;
-                } else if (effect.key === 'thump') {
-                    stats.thump = stats.thump + effect.data.rate / 100 * effect.data.value
-                } else if (effect.key === 'swiftness') {
-                    stats.swiftness += (effect.data.value - 1) + stats.swiftnessRune
-                } else if (runeKey in stats) {
-                    stats[effect.key] += effect.data.value + stats[runeKey];
-                } else if (effect.data.value) {
-                    stats[effect.key] += effect.data.value;
-                } else if (effect.data.multiplier) {
-                    stats[effect.key] += effect.data.multiplier;
-                }
-            }
+            weaponSpecialParse(stats, effect);
+        }
+        // 暗金特效 TODO: bugfix
+        for (let effect of (weapon.darkGoldAttrs?.special|| [])) {
+            weaponSpecialParse(stats, effect);
+        }
+        // 刻印特效
+        for (let effect of (weapon.engrave?.special|| [])) {
+            weaponSpecialParse(stats, effect);
         }
     });
 
@@ -171,7 +212,11 @@ function parseCharacterEquipment() {
     // 最终攻速计算
     stats.finalAtksp = (stats.atksp / 100 - 1) * (1 + stats.swiftness) + 1;
     // 拟合公式
-    stats.actualAtksp = (38.097 * stats.finalAtksp ** 2 + 123.3 * stats.finalAtksp + 32.018) / 180;
+    Object.entries(atkSpMap).forEach(([atkSp, actAtkSp]) => {
+        if (stats.finalAtksp >= parseFloat(atkSp)) {
+            stats.actualAtksp = actAtkSp / 180;
+        }
+    });
 
     stats.dpsRaw = stats.actualAtksp * Math.min(stats.hr / 100, 1) * (
         stats.atk * Math.max(1 - stats.crt / 100, 0)+
@@ -179,6 +224,7 @@ function parseCharacterEquipment() {
         stats.split * stats.chasing +
         stats.split * stats.heavyInjury * Math.min(stats.crt / 100, 1) +
         stats.split * stats.thump +
+        stats.split * stats.shadowBlade +
         stats.split * stats.tearInjury
     ) * (1 + stats.sharp / 100) * (1 + stats.ad / 100)
 
@@ -186,6 +232,7 @@ function parseCharacterEquipment() {
         weaponList,
         fightPet,
         runeList,
-        stats
+        relicList,
+        stats,
     };
 }

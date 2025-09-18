@@ -40,6 +40,52 @@ export function hookWS() {
             return message;
         }
     }
+
+    const sendProperty = Object.getOwnPropertyDescriptor(WebSocket.prototype, "send");
+    const oriSend = sendProperty.value;
+
+    sendProperty.value = hookedSend;
+    Object.defineProperty(WebSocket.prototype, "send", sendProperty);
+
+    function hookedSend(data) {
+        if (this.url.indexOf("api.aring.cc") > -1) {
+            try {
+                const message = typeof data === 'string' ? data : data.toString();
+                // logMessage(`WS Send: ${message}`);
+                
+                // 处理发送消息的钩子
+                for (let { sendRegex, sendHookHandler } of hookHandlers) {
+                    if (sendRegex.test(message)) {
+                        try {
+                            const responseHandler = sendHookHandler(message);
+                            if (responseHandler) {
+                                // 生成唯一ID并存储一次性响应处理器
+                                const hookId = generateHookId();
+                                oneTimeResponseHandlers.set(hookId, {
+                                    handler: responseHandler.handler,
+                                    responseRegex: responseHandler.responseRegex,
+                                    timeout: responseHandler.timeout || 30000, // 默认30秒超时
+                                    timestamp: Date.now(),
+                                    originalSendMessage: message
+                                });
+                                
+                                // 设置超时清理
+                                setTimeout(() => {
+                                    oneTimeResponseHandlers.delete(hookId);
+                                }, responseHandler.timeout || 30000);
+                            }
+                        } catch (error) {
+                            logMessage("Error in sendHookHandler:");
+                            logMessage(error);
+                        }
+                    }
+                }
+            } catch (error) {
+                console.log("Error in hookedSend:", error);
+            }
+        }
+        return oriSend.call(this, data);
+    }
 }
 
 export function wsSend(data) {
@@ -56,6 +102,8 @@ export function wsSend(data) {
 
 const messageHandlers = [];
 const pendingRequests = new Map(); // 存储待处理的请求
+const hookHandlers = []; // 存储发送消息的钩子处理器
+const oneTimeResponseHandlers = new Map(); // 存储一次性响应处理器
 
 function handleMessage(message) {
     let obj;
@@ -65,6 +113,24 @@ function handleMessage(message) {
         return message;
     }
 
+    // 检查一次性响应处理器
+    for (let [hookId, hookInfo] of oneTimeResponseHandlers.entries()) {
+        if (hookInfo.responseRegex.test(message)) {
+            try {
+                oneTimeResponseHandlers.delete(hookId);
+                hookInfo.handler(obj, {
+                    originalSendMessage: hookInfo.originalSendMessage,
+                    responseMessage: message,
+                    hookId: hookId
+                });
+            } catch (error) {
+                logMessage(`Error in one-time response handler for ${hookId}:`);
+                logMessage(error);
+            }
+        }
+    }
+
+    // 处理常规消息处理器
     for (let { regex, handler } of messageHandlers) {
         if (regex.test(message)) {
             try {
@@ -81,6 +147,30 @@ function handleMessage(message) {
 
 export function registMessageHandler(regex, handler) {
     messageHandlers.push({ regex, handler });
+}
+
+// 注册发送消息钩子处理器
+export function registSendHookHandler(sendRegex, sendHookHandler) {
+    hookHandlers.push({ sendRegex, sendHookHandler });
+}
+
+// 直接注册一次性响应处理器
+export function registOneTimeResponseHandler(responseRegex, handler, timeout = 30000) {
+    const hookId = generateHookId();
+    oneTimeResponseHandlers.set(hookId, {
+        handler: handler,
+        responseRegex: responseRegex,
+        timeout: timeout,
+        timestamp: Date.now(),
+        originalSendMessage: null
+    });
+    
+    // 设置超时清理
+    setTimeout(() => {
+        oneTimeResponseHandlers.delete(hookId);
+    }, timeout);
+    
+    return hookId;
 }
 
 export function hookHTTP() {
@@ -140,7 +230,7 @@ export function hookHTTP() {
     XMLHttpRequest.prototype.send = function(data) {
         const requestId = generateRequestId();
         this._requestId = requestId;
-        
+
         if (this._url && this._url.includes('api.aring.cc')) {
             // 存储请求信息
             pendingRequests.set(requestId, {
@@ -212,6 +302,11 @@ export function registHTTPRequestHandler(urlRegex, bodyRegex, resBodyRegex, hand
 // 生成唯一的请求ID
 function generateRequestId() {
     return Date.now().toString(36) + Math.random().toString(36).substr(2);
+}
+
+// 生成唯一的钩子ID
+function generateHookId() {
+    return 'hook_' + Date.now().toString(36) + Math.random().toString(36).substr(2);
 }
 
 // 清理超时的请求记录

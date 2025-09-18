@@ -2,7 +2,7 @@
 // ==UserScript==
 // @name           WarSoul-Tools
 // @namespace      WarSoul-Tools
-// @version        0.1.0
+// @version        0.2.1
 // @author         BKN46
 // @description    WarSoul实用工具
 // @icon           https://www.milkywayidle.com/favicon.svg
@@ -64,9 +64,58 @@
         return message;
       }
     }
+    const sendProperty = Object.getOwnPropertyDescriptor(WebSocket.prototype, "send");
+    const oriSend = sendProperty.value;
+    sendProperty.value = hookedSend;
+    Object.defineProperty(WebSocket.prototype, "send", sendProperty);
+    function hookedSend(data) {
+      if (this.url.indexOf("api.aring.cc") > -1) {
+        try {
+          const message = typeof data === 'string' ? data : data.toString();
+          // logMessage(`WS Send: ${message}`);
+
+          // 处理发送消息的钩子
+          for (let {
+            sendRegex,
+            sendHookHandler
+          } of hookHandlers) {
+            if (sendRegex.test(message)) {
+              try {
+                const responseHandler = sendHookHandler(message);
+                if (responseHandler) {
+                  // 生成唯一ID并存储一次性响应处理器
+                  const hookId = generateHookId();
+                  oneTimeResponseHandlers.set(hookId, {
+                    handler: responseHandler.handler,
+                    responseRegex: responseHandler.responseRegex,
+                    timeout: responseHandler.timeout || 30000,
+                    // 默认30秒超时
+                    timestamp: Date.now(),
+                    originalSendMessage: message
+                  });
+
+                  // 设置超时清理
+                  setTimeout(() => {
+                    oneTimeResponseHandlers.delete(hookId);
+                  }, responseHandler.timeout || 30000);
+                }
+              } catch (error) {
+                logMessage("Error in sendHookHandler:");
+                logMessage(error);
+              }
+            }
+          }
+        } catch (error) {
+          console.log("Error in hookedSend:", error);
+        }
+      }
+      return oriSend.call(this, data);
+    }
   }
   const messageHandlers = [];
   const pendingRequests = new Map(); // 存储待处理的请求
+  const hookHandlers = []; // 存储发送消息的钩子处理器
+  const oneTimeResponseHandlers = new Map(); // 存储一次性响应处理器
 
   function handleMessage(message) {
     let obj;
@@ -75,6 +124,25 @@
     } catch (error) {
       return message;
     }
+
+    // 检查一次性响应处理器
+    for (let [hookId, hookInfo] of oneTimeResponseHandlers.entries()) {
+      if (hookInfo.responseRegex.test(message)) {
+        try {
+          oneTimeResponseHandlers.delete(hookId);
+          hookInfo.handler(obj, {
+            originalSendMessage: hookInfo.originalSendMessage,
+            responseMessage: message,
+            hookId: hookId
+          });
+        } catch (error) {
+          logMessage(`Error in one-time response handler for ${hookId}:`);
+          logMessage(error);
+        }
+      }
+    }
+
+    // 处理常规消息处理器
     for (let {
       regex,
       handler
@@ -94,6 +162,14 @@
     messageHandlers.push({
       regex,
       handler
+    });
+  }
+
+  // 注册发送消息钩子处理器
+  function registSendHookHandler(sendRegex, sendHookHandler) {
+    hookHandlers.push({
+      sendRegex,
+      sendHookHandler
     });
   }
   function hookHTTP() {
@@ -220,6 +296,11 @@
   // 生成唯一的请求ID
   function generateRequestId() {
     return Date.now().toString(36) + Math.random().toString(36).substr(2);
+  }
+
+  // 生成唯一的钩子ID
+  function generateHookId() {
+    return 'hook_' + Date.now().toString(36) + Math.random().toString(36).substr(2);
   }
 
   // 清理超时的请求记录
@@ -1281,102 +1362,66 @@
     Iterator: IteratorConstructor
   });
 
-  var iterators = {};
+  var redefine = redefine$3.exports;
 
-  var wellKnownSymbol$4 = wellKnownSymbol$8;
-  var Iterators$1 = iterators;
-
-  var ITERATOR$1 = wellKnownSymbol$4('iterator');
-  var ArrayPrototype = Array.prototype;
-
-  // check on default Array iterator
-  var isArrayIteratorMethod$1 = function (it) {
-    return it !== undefined && (Iterators$1.Array === it || ArrayPrototype[ITERATOR$1] === it);
+  var redefineAll$1 = function (target, src, options) {
+    for (var key in src) redefine(target, key, src[key], options);
+    return target;
   };
 
   var aCallable$5 = aCallable$7;
-
-  // optional / simple context binding
-  var functionBindContext = function (fn, that, length) {
-    aCallable$5(fn);
-    if (that === undefined) return fn;
-    switch (length) {
-      case 0: return function () {
-        return fn.call(that);
-      };
-      case 1: return function (a) {
-        return fn.call(that, a);
-      };
-      case 2: return function (a, b) {
-        return fn.call(that, a, b);
-      };
-      case 3: return function (a, b, c) {
-        return fn.call(that, a, b, c);
-      };
-    }
-    return function (/* ...args */) {
-      return fn.apply(that, arguments);
-    };
-  };
-
-  var wellKnownSymbol$3 = wellKnownSymbol$8;
-
-  var TO_STRING_TAG$2 = wellKnownSymbol$3('toStringTag');
-  var test = {};
-
-  test[TO_STRING_TAG$2] = 'z';
-
-  var toStringTagSupport = String(test) === '[object z]';
-
-  var TO_STRING_TAG_SUPPORT = toStringTagSupport;
-  var isCallable = isCallable$d;
-  var classofRaw = classofRaw$1;
-  var wellKnownSymbol$2 = wellKnownSymbol$8;
-
-  var TO_STRING_TAG$1 = wellKnownSymbol$2('toStringTag');
-  // ES3 wrong here
-  var CORRECT_ARGUMENTS = classofRaw(function () { return arguments; }()) == 'Arguments';
-
-  // fallback for IE11 Script Access Denied error
-  var tryGet = function (it, key) {
-    try {
-      return it[key];
-    } catch (error) { /* empty */ }
-  };
-
-  // getting tag from ES6+ `Object.prototype.toString`
-  var classof$1 = TO_STRING_TAG_SUPPORT ? classofRaw : function (it) {
-    var O, tag, result;
-    return it === undefined ? 'Undefined' : it === null ? 'Null'
-      // @@toStringTag case
-      : typeof (tag = tryGet(O = Object(it), TO_STRING_TAG$1)) == 'string' ? tag
-      // builtinTag case
-      : CORRECT_ARGUMENTS ? classofRaw(O)
-      // ES3 arguments fallback
-      : (result = classofRaw(O)) == 'Object' && isCallable(O.callee) ? 'Arguments' : result;
-  };
-
-  var classof = classof$1;
-  var getMethod$2 = getMethod$4;
-  var Iterators = iterators;
-  var wellKnownSymbol$1 = wellKnownSymbol$8;
-
-  var ITERATOR = wellKnownSymbol$1('iterator');
-
-  var getIteratorMethod$2 = function (it) {
-    if (it != undefined) return getMethod$2(it, ITERATOR)
-      || getMethod$2(it, '@@iterator')
-      || Iterators[classof(it)];
-  };
-
-  var aCallable$4 = aCallable$7;
   var anObject$8 = anObject$d;
-  var getIteratorMethod$1 = getIteratorMethod$2;
+  var create = objectCreate;
+  var createNonEnumerableProperty = createNonEnumerableProperty$5;
+  var redefineAll = redefineAll$1;
+  var wellKnownSymbol$4 = wellKnownSymbol$8;
+  var InternalStateModule = internalState;
+  var getMethod$2 = getMethod$4;
+  var IteratorPrototype = iteratorsCore.IteratorPrototype;
 
-  var getIterator$1 = function (argument, usingIterator) {
-    var iteratorMethod = arguments.length < 2 ? getIteratorMethod$1(argument) : usingIterator;
-    if (aCallable$4(iteratorMethod)) return anObject$8(iteratorMethod.call(argument));
-    throw TypeError(String(argument) + ' is not iterable');
+  var setInternalState = InternalStateModule.set;
+  var getInternalState = InternalStateModule.get;
+
+  var TO_STRING_TAG$2 = wellKnownSymbol$4('toStringTag');
+
+  var iteratorCreateProxy = function (nextHandler, IS_ITERATOR) {
+    var IteratorProxy = function Iterator(state) {
+      state.next = aCallable$5(state.iterator.next);
+      state.done = false;
+      state.ignoreArg = !IS_ITERATOR;
+      setInternalState(this, state);
+    };
+
+    IteratorProxy.prototype = redefineAll(create(IteratorPrototype), {
+      next: function next(arg) {
+        var state = getInternalState(this);
+        var args = arguments.length ? [state.ignoreArg ? undefined : arg] : IS_ITERATOR ? [] : [undefined];
+        state.ignoreArg = false;
+        var result = state.done ? undefined : nextHandler.call(state, args);
+        return { done: state.done, value: result };
+      },
+      'return': function (value) {
+        var state = getInternalState(this);
+        var iterator = state.iterator;
+        state.done = true;
+        var $$return = getMethod$2(iterator, 'return');
+        return { done: true, value: $$return ? anObject$8($$return.call(iterator, value)).value : value };
+      },
+      'throw': function (value) {
+        var state = getInternalState(this);
+        var iterator = state.iterator;
+        state.done = true;
+        var $$throw = getMethod$2(iterator, 'throw');
+        if ($$throw) return $$throw.call(iterator, value);
+        throw value;
+      }
+    });
+
+    if (!IS_ITERATOR) {
+      createNonEnumerableProperty(IteratorProxy.prototype, TO_STRING_TAG$2, 'Generator');
+    }
+
+    return IteratorProxy;
   };
 
   var anObject$7 = anObject$d;
@@ -1403,12 +1448,152 @@
   };
 
   var anObject$6 = anObject$d;
+  var iteratorClose$1 = iteratorClose$2;
+
+  // call something on iterator step with safe closing on error
+  var callWithSafeIterationClosing$2 = function (iterator, fn, value, ENTRIES) {
+    try {
+      return ENTRIES ? fn(anObject$6(value)[0], value[1]) : fn(value);
+    } catch (error) {
+      iteratorClose$1(iterator, 'throw', error);
+    }
+  };
+
+  // https://github.com/tc39/proposal-iterator-helpers
+  var $$3 = _export;
+  var aCallable$4 = aCallable$7;
+  var anObject$5 = anObject$d;
+  var createIteratorProxy$1 = iteratorCreateProxy;
+  var callWithSafeIterationClosing$1 = callWithSafeIterationClosing$2;
+
+  var IteratorProxy$1 = createIteratorProxy$1(function (args) {
+    var iterator = this.iterator;
+    var filterer = this.filterer;
+    var next = this.next;
+    var result, done, value;
+    while (true) {
+      result = anObject$5(next.apply(iterator, args));
+      done = this.done = !!result.done;
+      if (done) return;
+      value = result.value;
+      if (callWithSafeIterationClosing$1(iterator, filterer, value)) return value;
+    }
+  });
+
+  $$3({ target: 'Iterator', proto: true, real: true }, {
+    filter: function filter(filterer) {
+      return new IteratorProxy$1({
+        iterator: anObject$5(this),
+        filterer: aCallable$4(filterer)
+      });
+    }
+  });
+
+  var iterators = {};
+
+  var wellKnownSymbol$3 = wellKnownSymbol$8;
+  var Iterators$1 = iterators;
+
+  var ITERATOR$1 = wellKnownSymbol$3('iterator');
+  var ArrayPrototype = Array.prototype;
+
+  // check on default Array iterator
+  var isArrayIteratorMethod$1 = function (it) {
+    return it !== undefined && (Iterators$1.Array === it || ArrayPrototype[ITERATOR$1] === it);
+  };
+
+  var aCallable$3 = aCallable$7;
+
+  // optional / simple context binding
+  var functionBindContext = function (fn, that, length) {
+    aCallable$3(fn);
+    if (that === undefined) return fn;
+    switch (length) {
+      case 0: return function () {
+        return fn.call(that);
+      };
+      case 1: return function (a) {
+        return fn.call(that, a);
+      };
+      case 2: return function (a, b) {
+        return fn.call(that, a, b);
+      };
+      case 3: return function (a, b, c) {
+        return fn.call(that, a, b, c);
+      };
+    }
+    return function (/* ...args */) {
+      return fn.apply(that, arguments);
+    };
+  };
+
+  var wellKnownSymbol$2 = wellKnownSymbol$8;
+
+  var TO_STRING_TAG$1 = wellKnownSymbol$2('toStringTag');
+  var test = {};
+
+  test[TO_STRING_TAG$1] = 'z';
+
+  var toStringTagSupport = String(test) === '[object z]';
+
+  var TO_STRING_TAG_SUPPORT = toStringTagSupport;
+  var isCallable = isCallable$d;
+  var classofRaw = classofRaw$1;
+  var wellKnownSymbol$1 = wellKnownSymbol$8;
+
+  var TO_STRING_TAG = wellKnownSymbol$1('toStringTag');
+  // ES3 wrong here
+  var CORRECT_ARGUMENTS = classofRaw(function () { return arguments; }()) == 'Arguments';
+
+  // fallback for IE11 Script Access Denied error
+  var tryGet = function (it, key) {
+    try {
+      return it[key];
+    } catch (error) { /* empty */ }
+  };
+
+  // getting tag from ES6+ `Object.prototype.toString`
+  var classof$1 = TO_STRING_TAG_SUPPORT ? classofRaw : function (it) {
+    var O, tag, result;
+    return it === undefined ? 'Undefined' : it === null ? 'Null'
+      // @@toStringTag case
+      : typeof (tag = tryGet(O = Object(it), TO_STRING_TAG)) == 'string' ? tag
+      // builtinTag case
+      : CORRECT_ARGUMENTS ? classofRaw(O)
+      // ES3 arguments fallback
+      : (result = classofRaw(O)) == 'Object' && isCallable(O.callee) ? 'Arguments' : result;
+  };
+
+  var classof = classof$1;
+  var getMethod = getMethod$4;
+  var Iterators = iterators;
+  var wellKnownSymbol = wellKnownSymbol$8;
+
+  var ITERATOR = wellKnownSymbol('iterator');
+
+  var getIteratorMethod$2 = function (it) {
+    if (it != undefined) return getMethod(it, ITERATOR)
+      || getMethod(it, '@@iterator')
+      || Iterators[classof(it)];
+  };
+
+  var aCallable$2 = aCallable$7;
+  var anObject$4 = anObject$d;
+  var getIteratorMethod$1 = getIteratorMethod$2;
+
+  var getIterator$1 = function (argument, usingIterator) {
+    var iteratorMethod = arguments.length < 2 ? getIteratorMethod$1(argument) : usingIterator;
+    if (aCallable$2(iteratorMethod)) return anObject$4(iteratorMethod.call(argument));
+    throw TypeError(String(argument) + ' is not iterable');
+  };
+
+  var anObject$3 = anObject$d;
   var isArrayIteratorMethod = isArrayIteratorMethod$1;
   var lengthOfArrayLike = lengthOfArrayLike$2;
   var bind = functionBindContext;
   var getIterator = getIterator$1;
   var getIteratorMethod = getIteratorMethod$2;
-  var iteratorClose$1 = iteratorClose$2;
+  var iteratorClose = iteratorClose$2;
 
   var Result = function (stopped, result) {
     this.stopped = stopped;
@@ -1424,13 +1609,13 @@
     var iterator, iterFn, index, length, result, next, step;
 
     var stop = function (condition) {
-      if (iterator) iteratorClose$1(iterator, 'normal', condition);
+      if (iterator) iteratorClose(iterator, 'normal', condition);
       return new Result(true, condition);
     };
 
     var callFn = function (value) {
       if (AS_ENTRIES) {
-        anObject$6(value);
+        anObject$3(value);
         return INTERRUPTED ? fn(value[0], value[1], stop) : fn(value[0], value[1]);
       } return INTERRUPTED ? fn(value, stop) : fn(value);
     };
@@ -1455,22 +1640,22 @@
       try {
         result = callFn(step.value);
       } catch (error) {
-        iteratorClose$1(iterator, 'throw', error);
+        iteratorClose(iterator, 'throw', error);
       }
       if (typeof result == 'object' && result && result instanceof Result) return result;
     } return new Result(false);
   };
 
   // https://github.com/tc39/proposal-iterator-helpers
-  var $$3 = _export;
+  var $$2 = _export;
   var iterate$1 = iterate$2;
-  var aCallable$3 = aCallable$7;
-  var anObject$5 = anObject$d;
+  var aCallable$1 = aCallable$7;
+  var anObject$2 = anObject$d;
 
-  $$3({ target: 'Iterator', proto: true, real: true }, {
+  $$2({ target: 'Iterator', proto: true, real: true }, {
     find: function find(fn) {
-      anObject$5(this);
-      aCallable$3(fn);
+      anObject$2(this);
+      aCallable$1(fn);
       return iterate$1(this, function (value, stop) {
         if (fn(value)) return stop(value);
       }, { IS_ITERATOR: true, INTERRUPTED: true }).result;
@@ -1478,109 +1663,35 @@
   });
 
   // https://github.com/tc39/proposal-iterator-helpers
-  var $$2 = _export;
-  var iterate = iterate$2;
-  var anObject$4 = anObject$d;
-
-  $$2({ target: 'Iterator', proto: true, real: true }, {
-    forEach: function forEach(fn) {
-      iterate(anObject$4(this), fn, { IS_ITERATOR: true });
-    }
-  });
-
-  var redefine = redefine$3.exports;
-
-  var redefineAll$1 = function (target, src, options) {
-    for (var key in src) redefine(target, key, src[key], options);
-    return target;
-  };
-
-  var aCallable$2 = aCallable$7;
-  var anObject$3 = anObject$d;
-  var create = objectCreate;
-  var createNonEnumerableProperty = createNonEnumerableProperty$5;
-  var redefineAll = redefineAll$1;
-  var wellKnownSymbol = wellKnownSymbol$8;
-  var InternalStateModule = internalState;
-  var getMethod = getMethod$4;
-  var IteratorPrototype = iteratorsCore.IteratorPrototype;
-
-  var setInternalState = InternalStateModule.set;
-  var getInternalState = InternalStateModule.get;
-
-  var TO_STRING_TAG = wellKnownSymbol('toStringTag');
-
-  var iteratorCreateProxy = function (nextHandler, IS_ITERATOR) {
-    var IteratorProxy = function Iterator(state) {
-      state.next = aCallable$2(state.iterator.next);
-      state.done = false;
-      state.ignoreArg = !IS_ITERATOR;
-      setInternalState(this, state);
-    };
-
-    IteratorProxy.prototype = redefineAll(create(IteratorPrototype), {
-      next: function next(arg) {
-        var state = getInternalState(this);
-        var args = arguments.length ? [state.ignoreArg ? undefined : arg] : IS_ITERATOR ? [] : [undefined];
-        state.ignoreArg = false;
-        var result = state.done ? undefined : nextHandler.call(state, args);
-        return { done: state.done, value: result };
-      },
-      'return': function (value) {
-        var state = getInternalState(this);
-        var iterator = state.iterator;
-        state.done = true;
-        var $$return = getMethod(iterator, 'return');
-        return { done: true, value: $$return ? anObject$3($$return.call(iterator, value)).value : value };
-      },
-      'throw': function (value) {
-        var state = getInternalState(this);
-        var iterator = state.iterator;
-        state.done = true;
-        var $$throw = getMethod(iterator, 'throw');
-        if ($$throw) return $$throw.call(iterator, value);
-        throw value;
-      }
-    });
-
-    if (!IS_ITERATOR) {
-      createNonEnumerableProperty(IteratorProxy.prototype, TO_STRING_TAG, 'Generator');
-    }
-
-    return IteratorProxy;
-  };
-
-  var anObject$2 = anObject$d;
-  var iteratorClose = iteratorClose$2;
-
-  // call something on iterator step with safe closing on error
-  var callWithSafeIterationClosing$2 = function (iterator, fn, value, ENTRIES) {
-    try {
-      return ENTRIES ? fn(anObject$2(value)[0], value[1]) : fn(value);
-    } catch (error) {
-      iteratorClose(iterator, 'throw', error);
-    }
-  };
-
-  // https://github.com/tc39/proposal-iterator-helpers
   var $$1 = _export;
-  var aCallable$1 = aCallable$7;
+  var iterate = iterate$2;
   var anObject$1 = anObject$d;
-  var createIteratorProxy$1 = iteratorCreateProxy;
-  var callWithSafeIterationClosing$1 = callWithSafeIterationClosing$2;
-
-  var IteratorProxy$1 = createIteratorProxy$1(function (args) {
-    var iterator = this.iterator;
-    var result = anObject$1(this.next.apply(iterator, args));
-    var done = this.done = !!result.done;
-    if (!done) return callWithSafeIterationClosing$1(iterator, this.mapper, result.value);
-  });
 
   $$1({ target: 'Iterator', proto: true, real: true }, {
+    forEach: function forEach(fn) {
+      iterate(anObject$1(this), fn, { IS_ITERATOR: true });
+    }
+  });
+
+  // https://github.com/tc39/proposal-iterator-helpers
+  var $ = _export;
+  var aCallable = aCallable$7;
+  var anObject = anObject$d;
+  var createIteratorProxy = iteratorCreateProxy;
+  var callWithSafeIterationClosing = callWithSafeIterationClosing$2;
+
+  var IteratorProxy = createIteratorProxy(function (args) {
+    var iterator = this.iterator;
+    var result = anObject(this.next.apply(iterator, args));
+    var done = this.done = !!result.done;
+    if (!done) return callWithSafeIterationClosing(iterator, this.mapper, result.value);
+  });
+
+  $({ target: 'Iterator', proto: true, real: true }, {
     map: function map(mapper) {
-      return new IteratorProxy$1({
-        iterator: anObject$1(this),
-        mapper: aCallable$1(mapper)
+      return new IteratorProxy({
+        iterator: anObject(this),
+        mapper: aCallable(mapper)
       });
     }
   });
@@ -1597,6 +1708,20 @@
     Object.assign(runeData, obj[0].data);
     logMessage(`Rune Data Updated, total ${Object.keys(runeData.runeCollection).length} runes`);
     saveToLocalStorage("runeData", runeData);
+    return obj;
+  });
+  const relicData = loadFromLocalStorage("relicData", {});
+  registMessageHandler(/^432\[/, obj => {
+    Object.assign(relicData, obj[0].data);
+    logMessage(`Relic Data Updated, total ${Object.keys(relicData).length} relics`);
+    saveToLocalStorage("relicData", relicData);
+    return obj;
+  });
+  const darkGoldData = loadFromLocalStorage("darkGoldData", {});
+  registMessageHandler(/^433\[/, obj => {
+    Object.assign(darkGoldData, obj[0].data);
+    logMessage(`Dark Gold Data Updated`);
+    saveToLocalStorage("darkGoldData", darkGoldData);
     return obj;
   });
   const starAttrMap = {
@@ -1641,6 +1766,36 @@
       stat.crt += equipmentEnhanceTable.rate[level] || 0;
       stat.crtd += equipmentEnhanceTable.crtd[level] || 0;
     }
+  };
+  function weaponSpecialParse(stats, effect) {
+    if (stats[effect.key] !== undefined) {
+      const runeKey = `${effect.key}Rune`;
+      // TODO: 更多词条支持
+      if (effect.key === 'split') {
+        const splitRate = effect.data.rate * (1 + stats.splitRune) / 100;
+        stats.split = stats.split + splitRate * effect.data.value;
+      } else if (effect.key === 'thump') {
+        stats.thump = stats.thump + effect.data.rate / 100 * effect.data.value;
+      } else if (effect.key === 'swiftness') {
+        stats.swiftness += effect.data.value - 1 + stats.swiftnessRune;
+      } else if (runeKey in stats) {
+        stats[effect.key] += effect.data.value + stats[runeKey];
+      } else if (effect.data.value) {
+        stats[effect.key] += effect.data.value;
+      } else if (effect.data.multiplier) {
+        stats[effect.key] += effect.data.multiplier;
+      }
+    }
+  }
+  const atkSpMap = {
+    1.001: 195,
+    1.112: 219,
+    1.251: 251,
+    1.430: 292,
+    1.700: 350,
+    2.003: 437,
+    2.504: 582,
+    3.340: 872
   };
   const equipmentEnhanceTable = {
     atk: {
@@ -1735,7 +1890,7 @@
     Object.assign(characterInfo, obj[0].data);
     logMessage(`Character Info Updated ${characterInfo.id}`);
     setTimeout(() => {
-      const parsed = parseCharacterEquipment();
+      const parsed = parseCharacterEquipment(characterInfo);
       characterInfo.parsed = parsed;
       logMessage(`Character Equipment Parsed:`);
       logMessage(parsed);
@@ -1753,24 +1908,65 @@
   });
 
   // See user info
-  registMessageHandler(/^4324\[/, obj => {
+  registMessageHandler(/^4338\[/, obj => {
+    const playerData = obj[0].data;
     logMessage(`Other Character Info Updated:`);
-    logMessage(obj);
-    return obj;
+    logMessage(playerData);
+    return playerData;
   });
-  function parseCharacterEquipment() {
-    const weaponList = characterInfo.equippedList || {};
-    Object.entries(weaponList).forEach(([key, value]) => {
-      const item = characterInfo.itemList.find(item => item.id === value);
-      item.origin = equipmentsData[item.equipId];
-      weaponList[key] = item;
-    });
-    const fightPet = (characterInfo.petList || []).find(pet => pet.id == characterInfo.fightPetId);
-    const runeList = (characterInfo.runeEquippedList || []).map(rune => {
-      rune = characterInfo.runeList.find(item => item.id === rune);
-      rune.origin = runeData.runeCollection[rune.runeId];
-      return rune;
-    });
+  registSendHookHandler(/\["seeUserInfo",/, message => {
+    const startNumber = parseInt(message.match(/^\d+/)?.[0]);
+    return {
+      responseRegex: new RegExp(`^${startNumber + 100}`),
+      handler: (obj, other) => {
+        const playerData = obj[0].data;
+        playerData.parsed = parseCharacterEquipment(playerData);
+        logMessage(`Other Character Info Updated:`);
+        logMessage(playerData.parsed);
+      }
+    };
+  });
+  function parseCharacterEquipment(character) {
+    let weaponList = character.equippedList || {};
+    let fightPet = (character.petList || []).find(pet => pet.id == character.fightPetId);
+    let runeList = (character.runeEquippedList || []).filter(item => item !== "");
+    let relicList = (character.relicEquippedList || []).filter(item => item !== "");
+    if (character.itemList) {
+      // 玩家
+      Object.entries(weaponList).forEach(([key, value]) => {
+        const item = character.itemList.find(item => item.id === value);
+        item.origin = equipmentsData[item.equipId];
+        weaponList[key] = item;
+      });
+      runeList = runeList.map(rune => {
+        rune = character.runeList.find(item => item.id === rune);
+        rune.origin = runeData.runeCollection[rune.runeId];
+        return rune;
+      });
+      relicList = relicList.map(relic => {
+        relic = character.itemList.find(item => item.id === relic);
+        relic.origin = relicData[relic.relicId];
+        return relic;
+      });
+    } else {
+      // 其他人
+      weaponList = {};
+      for (let weapon of character.equipList) {
+        const origin = equipmentsData[weapon.equipId];
+        weaponList[origin.type] = {
+          origin: origin,
+          ...weapon
+        };
+      }
+      runeList = character.runeList.filter(item => item !== "").map(rune => {
+        rune.origin = runeData.runeCollection[rune.runeId];
+        return rune;
+      });
+      relicList = character.relicList.filter(item => item !== "").map(relic => {
+        relic.origin = relicData[relic.relicId];
+        return relic;
+      });
+    }
     const stats = {
       atk: 100,
       // 攻击
@@ -1811,7 +2007,9 @@
       // 破阵：攻击力追加
       sharp: 0,
       // 锋利：攻击时附加伤害
-      tearInjury: 0 // 裂创：暴击时额外真实伤害
+      tearInjury: 0,
+      // 裂创：暴击时额外真实伤害
+      shadowBlade: 0 // 影刃：攻击时附加真实伤害
     };
 
     // 装备基础属性
@@ -1833,15 +2031,15 @@
         stats.ad += weapon.enchantAttr[1];
       }
       // 暗金属性
-      Object.entries(weapon?.darkGoldAttrs?.basic || {}).forEach(([attr, val]) => {
-        stats[attr] += val;
-      });
+      for (let effect of weapon?.darkGoldAttrs?.basic || []) {
+        stats[effect[0]] += effect[1] * darkGoldData.darkGoldBasicFactor[effect[0]];
+      }
     });
 
     // 符石
     for (let rune of runeList) {
       // 符石基础属性
-      const typeFactor = characterInfo.soulType == rune.origin.soulType ? 1.2 : 1.0;
+      const typeFactor = character.soulType == rune.origin.soulType ? 1.2 : 1.0;
       Object.entries(rune.attrs.basic).forEach(([attr, val]) => {
         // 系数
         const p = runeData.runeBasicFactor[attr] || 1.0;
@@ -1862,6 +2060,14 @@
       }
     }
 
+    // 圣物
+    for (let relic of relicList) {
+      // 圣物基础属性
+      Object.entries(relic.origin.attrs.basic).forEach(([attr, val]) => {
+        stats[attr] += val + (relic.origin.grow?.basic[attr] || 0) * relic.count;
+      });
+    }
+
     // 宠物基础属性
     Object.entries(fightPet?.fightAttrs || {}).forEach(([attr, val]) => {
       // 系数
@@ -1872,25 +2078,17 @@
 
     // 武器特效
     Object.entries(weaponList).forEach(([weaponType, weapon]) => {
+      // 普通特效
       for (let effect of weapon.origin?.attrs?.special || []) {
-        if (stats[effect.key] !== undefined) {
-          const runeKey = `${effect.key}Rune`;
-          // TODO: 更多词条支持
-          if (effect.key === 'split') {
-            const splitRate = effect.data.rate * (1 + stats.splitRune) / 100;
-            stats.split = stats.split + splitRate * effect.data.value;
-          } else if (effect.key === 'thump') {
-            stats.thump = stats.thump + effect.data.rate / 100 * effect.data.value;
-          } else if (effect.key === 'swiftness') {
-            stats.swiftness += effect.data.value - 1 + stats.swiftnessRune;
-          } else if (runeKey in stats) {
-            stats[effect.key] += effect.data.value + stats[runeKey];
-          } else if (effect.data.value) {
-            stats[effect.key] += effect.data.value;
-          } else if (effect.data.multiplier) {
-            stats[effect.key] += effect.data.multiplier;
-          }
-        }
+        weaponSpecialParse(stats, effect);
+      }
+      // 暗金特效 TODO: bugfix
+      for (let effect of weapon.darkGoldAttrs?.special || []) {
+        weaponSpecialParse(stats, effect);
+      }
+      // 刻印特效
+      for (let effect of weapon.engrave?.special || []) {
+        weaponSpecialParse(stats, effect);
       }
     });
 
@@ -1899,45 +2097,20 @@
     // 最终攻速计算
     stats.finalAtksp = (stats.atksp / 100 - 1) * (1 + stats.swiftness) + 1;
     // 拟合公式
-    stats.actualAtksp = (38.097 * stats.finalAtksp ** 2 + 123.3 * stats.finalAtksp + 32.018) / 180;
-    stats.dpsRaw = stats.actualAtksp * Math.min(stats.hr / 100, 1) * (stats.atk * Math.max(1 - stats.crt / 100, 0) + stats.crtd / 100 * stats.atk * Math.min(stats.crt / 100, 1) + stats.split * stats.chasing + stats.split * stats.heavyInjury * Math.min(stats.crt / 100, 1) + stats.split * stats.thump + stats.split * stats.tearInjury) * (1 + stats.sharp / 100) * (1 + stats.ad / 100);
+    Object.entries(atkSpMap).forEach(([atkSp, actAtkSp]) => {
+      if (stats.finalAtksp >= parseFloat(atkSp)) {
+        stats.actualAtksp = actAtkSp / 180;
+      }
+    });
+    stats.dpsRaw = stats.actualAtksp * Math.min(stats.hr / 100, 1) * (stats.atk * Math.max(1 - stats.crt / 100, 0) + stats.crtd / 100 * stats.atk * Math.min(stats.crt / 100, 1) + stats.split * stats.chasing + stats.split * stats.heavyInjury * Math.min(stats.crt / 100, 1) + stats.split * stats.thump + stats.split * stats.shadowBlade + stats.split * stats.tearInjury) * (1 + stats.sharp / 100) * (1 + stats.ad / 100);
     return {
       weaponList,
       fightPet,
       runeList,
+      relicList,
       stats
     };
   }
-
-  // https://github.com/tc39/proposal-iterator-helpers
-  var $ = _export;
-  var aCallable = aCallable$7;
-  var anObject = anObject$d;
-  var createIteratorProxy = iteratorCreateProxy;
-  var callWithSafeIterationClosing = callWithSafeIterationClosing$2;
-
-  var IteratorProxy = createIteratorProxy(function (args) {
-    var iterator = this.iterator;
-    var filterer = this.filterer;
-    var next = this.next;
-    var result, done, value;
-    while (true) {
-      result = anObject(next.apply(iterator, args));
-      done = this.done = !!result.done;
-      if (done) return;
-      value = result.value;
-      if (callWithSafeIterationClosing(iterator, filterer, value)) return value;
-    }
-  });
-
-  $({ target: 'Iterator', proto: true, real: true }, {
-    filter: function filter(filterer) {
-      return new IteratorProxy({
-        iterator: anObject(this),
-        filterer: aCallable(filterer)
-      });
-    }
-  });
 
   // 判断战斗时间内是否能打过
   let maxTime = 0;
