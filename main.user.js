@@ -1739,6 +1739,15 @@
       characterInfo.parsed = parsed;
       logMessage(`Character Equipment Parsed:`);
       logMessage(parsed);
+      const attrPanel = document.querySelector(".user-attrs");
+      let dpsEle = document.getElementById("wst-dps");
+      if (!dpsEle) {
+        dpsEle = document.createElement("div");
+        dpsEle.id = "wst-dps";
+        dpsEle.style.fontSize = "14px";
+        attrPanel.insertBefore(dpsEle, attrPanel.firstElementChild?.nextElementSibling || attrPanel.firstElementChild);
+      }
+      dpsEle.innerText = `裸DPS估算: ${parsed.stats.dpsRaw.toFixed(0)}`;
     }, 1000);
     return obj;
   });
@@ -1796,7 +1805,13 @@
       heavyInjury: 0,
       // 重创：暴击追加
       heavyInjuryRune: 0,
-      thump: 0 // 重击期望：概率额外伤害
+      thump: 0,
+      // 重击期望：概率额外伤害
+      break: 0,
+      // 破阵：攻击力追加
+      sharp: 0,
+      // 锋利：攻击时附加伤害
+      tearInjury: 0 // 裂创：暴击时额外真实伤害
     };
 
     // 装备基础属性
@@ -1826,22 +1841,22 @@
     // 符石
     for (let rune of runeList) {
       // 符石基础属性
+      const typeFactor = characterInfo.soulType == rune.origin.soulType ? 1.2 : 1.0;
       Object.entries(rune.attrs.basic).forEach(([attr, val]) => {
         // 系数
-        let p = 1.0;
-        if (attr === 'crt') {
-          p = 0.3;
-        }
-        stats[attr] += val * p;
+        const p = runeData.runeBasicFactor[attr] || 1.0;
+        stats[attr] += val * p * typeFactor;
       });
       // 符石特殊属性
       for (let effect of rune.attrs?.special || []) {
         const key = `${effect.key}Rune`;
+        const p = runeData.runeSpecialFactor[effect.key] || {};
         if (stats[key] !== undefined) {
+          // TODO: 更多词条支持
           if (effect.data.extraRate) {
-            stats[key] += effect.data.extraRate;
-          } else {
-            stats[key] += effect.data.extraValue;
+            stats[key] += effect.data.extraRate * (p?.extraRate || 1.0) * typeFactor;
+          } else if (effect.data.extraValue) {
+            stats[key] += effect.data.extraValue * (p?.extraValue || 1.0) * typeFactor;
           }
         }
       }
@@ -1850,10 +1865,8 @@
     // 宠物基础属性
     Object.entries(fightPet?.fightAttrs || {}).forEach(([attr, val]) => {
       // 系数
-      let p = 1.0;
-      if (attr === 'crt') {
-        p = 0.3;
-      }
+      // const p = runeData.runeBasicFactor[attr] || 1.0;
+      const p = 1.0;
       stats[attr] += val * p;
     });
 
@@ -1862,23 +1875,32 @@
       for (let effect of weapon.origin?.attrs?.special || []) {
         if (stats[effect.key] !== undefined) {
           const runeKey = `${effect.key}Rune`;
+          // TODO: 更多词条支持
           if (effect.key === 'split') {
-            stats.split = stats.split * ((effect.data.rate + stats.splitRune) / 100 * (effect.data.value - 1) + 1);
+            const splitRate = effect.data.rate * (1 + stats.splitRune) / 100;
+            stats.split = stats.split + splitRate * effect.data.value;
           } else if (effect.key === 'thump') {
             stats.thump = stats.thump + effect.data.rate / 100 * effect.data.value;
           } else if (effect.key === 'swiftness') {
-            stats.swiftness = stats.swiftness - 1 + stats.swiftnessRune;
+            stats.swiftness += effect.data.value - 1 + stats.swiftnessRune;
           } else if (runeKey in stats) {
             stats[effect.key] += effect.data.value + stats[runeKey];
-          } else {
+          } else if (effect.data.value) {
             stats[effect.key] += effect.data.value;
+          } else if (effect.data.multiplier) {
+            stats[effect.key] += effect.data.multiplier;
           }
         }
       }
     });
 
+    // 最终攻击力计算
+    stats.finalAtk = stats.atk * (1 + stats.break / 100);
     // 最终攻速计算
-    stats.atksp = stats.atksp * (1 + stats.swiftness);
+    stats.finalAtksp = (stats.atksp / 100 - 1) * (1 + stats.swiftness) + 1;
+    // 拟合公式
+    stats.actualAtksp = (38.097 * stats.finalAtksp ** 2 + 123.3 * stats.finalAtksp + 32.018) / 180;
+    stats.dpsRaw = stats.actualAtksp * Math.min(stats.hr / 100, 1) * (stats.atk * Math.max(1 - stats.crt / 100, 0) + stats.crtd / 100 * stats.atk * Math.min(stats.crt / 100, 1) + stats.split * stats.chasing + stats.split * stats.heavyInjury * Math.min(stats.crt / 100, 1) + stats.split * stats.thump + stats.split * stats.tearInjury) * (1 + stats.sharp / 100) * (1 + stats.ad / 100);
     return {
       weaponList,
       fightPet,
