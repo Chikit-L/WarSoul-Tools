@@ -39,6 +39,7 @@
   // 监听页面可见性变化
   document.addEventListener('visibilitychange', function () {
   });
+  let selfWS = null;
   function hookWS() {
     const dataProperty = Object.getOwnPropertyDescriptor(MessageEvent.prototype, "data");
     const oriGet = dataProperty.get;
@@ -52,6 +53,7 @@
       if (socket.url.indexOf("api.aring.cc") <= -1) {
         return oriGet.call(this);
       }
+      selfWS = socket;
       const message = oriGet.call(this);
       Object.defineProperty(this, "data", {
         value: message
@@ -110,6 +112,17 @@
         }
       }
       return oriSend.call(this, data);
+    }
+  }
+  function wsSend(data) {
+    if (selfWS && selfWS.readyState === WebSocket.OPEN) {
+      try {
+        selfWS.send(data);
+      } catch (error) {
+        console.log("Error in wsSend:", error);
+      }
+    } else {
+      console.log("WebSocket is not open or not initialized.");
     }
   }
   const messageHandlers = [];
@@ -2199,6 +2212,21 @@
     atkEl.appendChild(document.createElement('br'));
     atkEl.innerText += `命中率: ${(hitAccuracy * 100).toFixed(2)}% 暴击率: ${(criticalRate * 100).toFixed(2)}%`;
   }, 1000);
+
+  registSendHookHandler(/\["fishingCompetitionThrowRod",/, message => {
+    const startNumber = parseInt(message.match(/^\d+/)?.[0]);
+    return {
+      responseRegex: new RegExp(`^${startNumber + 100}`),
+      handler: (obj, other) => {
+        const fishData = obj[0].data;
+        const position = fishData.position;
+        logMessage(`Fishing Competition: Fish appeared at position ${position}, reeling in...`);
+        setTimeout(() => {
+          wsSend(`${startNumber + 1}["fishingCompetitionReelIn",{"position":${position}}]`);
+        }, 1000);
+      }
+    };
+  });
 
   hookWS();
   hookHTTP();

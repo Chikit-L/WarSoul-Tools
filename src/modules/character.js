@@ -55,6 +55,10 @@ export function getUserInfo(userId) {
     wsSend(`4224["seeUserInfo",{"userId":${userId}}]`);
 }
 
+export function refreshCharacterInfo() {
+    wsSend(`424["init",{}]`);
+}
+
 function parseCharacterEquipment(character) {
     let weaponList = (character.equippedList || {});
     let fightPet = (character.petList || []).find(pet => pet.id == character.fightPetId);
