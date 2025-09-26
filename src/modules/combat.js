@@ -6,6 +6,9 @@ let maxTime = 0;
 setInterval(() => {
   const dungeonPage = document.querySelector('.dungeon-page');
   let fightPage = dungeonPage.querySelector('.person-fight');
+  if (!dungeonPage ) {
+    return;
+  }
   if (fightPage.style.display === 'none') {
     fightPage = dungeonPage.querySelector('.team-fight');
   }
@@ -71,7 +74,7 @@ registMessageHandler(/^42\["fightRes/, (obj) => {
 
 setInterval(() => {
   const fightPage = document.querySelector('.fight-page');
-  if (fightPage.style.display === 'none' || atkList.length < 1) {
+  if (!fightPage || fightPage.style.display === 'none' || atkList.length < 1) {
     return;
   }
   const totalAtk = atkList.reduce((sum, atkInfo) => sum + atkInfo.atk.length, 0);

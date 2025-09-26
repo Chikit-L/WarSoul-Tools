@@ -1,4 +1,4 @@
-import { registMessageHandler, wsSend } from "./connection";
+import { registMessageHandler, requestIdCounter, wsSend } from "./connection";
 
 // Get party rooms
 registMessageHandler(/^4325/, (obj) => {
@@ -10,11 +10,19 @@ registMessageHandler(/^4327/, (obj) => {
 
 });
 
+registMessageHandler(/\["nestPlayerJoin",/, (obj) => {
+  const playerId = obj[0].data.id;
+});
+
 
 export function joinPartyRoom(roomId) {
-  wsSend(`4227["joinRoom", {roomId: ${roomId}}]`);
+  wsSend(`42${requestIdCounter}["joinRoom", {roomId: ${roomId}}]`);
 }
 
 export function leavePartyRoom() {
-  wsSend(`4229["quitRoom", {}]`);
+  wsSend(`42${requestIdCounter}["quitRoom", {}]`);
+}
+
+export function startPartyCrackFight() {
+  wsSend(`42${requestIdCounter}["startCrackFight", {}]`);
 }

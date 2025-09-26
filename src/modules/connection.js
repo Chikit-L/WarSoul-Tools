@@ -52,6 +52,10 @@ export function hookWS() {
             try {
                 const message = typeof data === 'string' ? data : data.toString();
                 // logMessage(`WS Send: ${message}`);
+
+                if (message.startsWith('42')) {
+                    requestIdCounter += 1;
+                }
                 
                 // 处理发送消息的钩子
                 for (let { sendRegex, sendHookHandler } of hookHandlers) {
@@ -117,6 +121,7 @@ function handleMessage(message) {
     for (let [hookId, hookInfo] of oneTimeResponseHandlers.entries()) {
         if (hookInfo.responseRegex.test(message)) {
             try {
+                // 先删除处理器，避免重复处理
                 oneTimeResponseHandlers.delete(hookId);
                 hookInfo.handler(obj, {
                     originalSendMessage: hookInfo.originalSendMessage,
@@ -157,20 +162,33 @@ export function registSendHookHandler(sendRegex, sendHookHandler) {
 // 直接注册一次性响应处理器
 export function registOneTimeResponseHandler(responseRegex, handler, timeout = 30000) {
     const hookId = generateHookId();
-    oneTimeResponseHandlers.set(hookId, {
-        handler: handler,
-        responseRegex: responseRegex,
-        timeout: timeout,
-        timestamp: Date.now(),
-        originalSendMessage: null
+
+    return new Promise((resolve, reject) => {
+        oneTimeResponseHandlers.set(hookId, {
+            handler: (obj, context) => {
+                try {
+                    const result = handler(obj, context);
+                    resolve(result);
+                } catch (error) {
+                    reject(error);
+                }
+            },
+            responseRegex: responseRegex,
+            timeout: timeout,
+            timestamp: Date.now(),
+            originalSendMessage: null,
+            resolve: resolve,
+            reject: reject
+        });
+        
+        // 设置超时清理
+        setTimeout(() => {
+            if (oneTimeResponseHandlers.has(hookId)) {
+                oneTimeResponseHandlers.delete(hookId);
+                reject(new Error(`Response handler timeout after ${timeout}ms`));
+            }
+        }, timeout);
     });
-    
-    // 设置超时清理
-    setTimeout(() => {
-        oneTimeResponseHandlers.delete(hookId);
-    }, timeout);
-    
-    return hookId;
 }
 
 export function hookHTTP() {
@@ -308,6 +326,8 @@ function generateRequestId() {
 function generateHookId() {
     return 'hook_' + Date.now().toString(36) + Math.random().toString(36).substr(2);
 }
+
+export let requestIdCounter = 5;
 
 // 清理超时的请求记录
 setInterval(() => {

@@ -1,4 +1,4 @@
-import { registHTTPRequestHandler, registMessageHandler } from "./connection";
+import { registHTTPRequestHandler, registMessageHandler, requestIdCounter } from "./connection";
 import { loadFromLocalStorage, saveToLocalStorage, logMessage } from "./utils";
 
 export const equipmentsData = loadFromLocalStorage("equipmentsData", {});
@@ -172,3 +172,7 @@ const equipmentEnhanceTable = {
       18: 21
   }
 }
+
+export function sellEquipment(equipmentId) {
+    wsSend(`42${requestIdCounter}["sellEquip", {idList: ["${equipmentId}"]}]`)
+};

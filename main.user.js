@@ -76,6 +76,10 @@
           const message = typeof data === 'string' ? data : data.toString();
           // logMessage(`WS Send: ${message}`);
 
+          if (message.startsWith('42')) {
+            requestIdCounter += 1;
+          }
+
           // 处理发送消息的钩子
           for (let {
             sendRegex,
@@ -142,6 +146,7 @@
     for (let [hookId, hookInfo] of oneTimeResponseHandlers.entries()) {
       if (hookInfo.responseRegex.test(message)) {
         try {
+          // 先删除处理器，避免重复处理
           oneTimeResponseHandlers.delete(hookId);
           hookInfo.handler(obj, {
             originalSendMessage: hookInfo.originalSendMessage,
@@ -315,6 +320,7 @@
   function generateHookId() {
     return 'hook_' + Date.now().toString(36) + Math.random().toString(36).substr(2);
   }
+  let requestIdCounter = 5;
 
   // 清理超时的请求记录
   setInterval(() => {
@@ -1919,26 +1925,6 @@
     }, 1000);
     return obj;
   });
-
-  // See user info
-  registMessageHandler(/^4338\[/, obj => {
-    const playerData = obj[0].data;
-    logMessage(`Other Character Info Updated:`);
-    logMessage(playerData);
-    return playerData;
-  });
-  registSendHookHandler(/\["seeUserInfo",/, message => {
-    const startNumber = parseInt(message.match(/^\d+/)?.[0]);
-    return {
-      responseRegex: new RegExp(`^${startNumber + 100}`),
-      handler: (obj, other) => {
-        const playerData = obj[0].data;
-        playerData.parsed = parseCharacterEquipment(playerData);
-        logMessage(`Other Character Info Updated:`);
-        logMessage(playerData.parsed);
-      }
-    };
-  });
   function parseCharacterEquipment(character) {
     let weaponList = character.equippedList || {};
     let fightPet = (character.petList || []).find(pet => pet.id == character.fightPetId);
@@ -1971,11 +1957,11 @@
           ...weapon
         };
       }
-      runeList = character.runeList.filter(item => item !== "").map(rune => {
+      runeList = character.runeList.filter(item => item && item !== "").map(rune => {
         rune.origin = runeData.runeCollection[rune.runeId];
         return rune;
       });
-      relicList = character.relicList.filter(item => item !== "").map(relic => {
+      relicList = character.relicList.filter(item => item && item !== "").map(relic => {
         relic.origin = relicData[relic.relicId];
         return relic;
       });
@@ -2130,6 +2116,9 @@
   setInterval(() => {
     const dungeonPage = document.querySelector('.dungeon-page');
     let fightPage = dungeonPage.querySelector('.person-fight');
+    if (!dungeonPage) {
+      return;
+    }
     if (fightPage.style.display === 'none') {
       fightPage = dungeonPage.querySelector('.team-fight');
     }
@@ -2186,7 +2175,7 @@
   });
   setInterval(() => {
     const fightPage = document.querySelector('.fight-page');
-    if (fightPage.style.display === 'none' || atkList.length < 1) {
+    if (!fightPage || fightPage.style.display === 'none' || atkList.length < 1) {
       return;
     }
     const totalAtk = atkList.reduce((sum, atkInfo) => sum + atkInfo.atk.length, 0);
@@ -2220,7 +2209,7 @@
       handler: (obj, other) => {
         const fishData = obj[0].data;
         const position = fishData.position;
-        logMessage(`Fishing Competition: Fish appeared at position ${position}, reeling in...`);
+        logMessage(`Fishing Competition: Fish appeared at position ${position} est size ${fishData.size}, reeling in...`);
         setTimeout(() => {
           wsSend(`${startNumber + 1}["fishingCompetitionReelIn",{"position":${position}}]`);
         }, 1000);
@@ -2230,6 +2219,8 @@
 
   hookWS();
   hookHTTP();
+  // injectDebugTool();
+
   logMessage("WarSoul-Tools loaded.");
 
 })();

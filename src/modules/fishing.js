@@ -8,7 +8,7 @@ registSendHookHandler(/\["fishingCompetitionThrowRod",/, (message) => {
         handler: (obj, other) => {
             const fishData = obj[0].data;
             const position = fishData.position;
-            logMessage(`Fishing Competition: Fish appeared at position ${position}, reeling in...`);
+            logMessage(`Fishing Competition: Fish appeared at position ${position} est size ${fishData.size}, reeling in...`);
             setTimeout(() => {
                 wsSend(`${startNumber + 1}["fishingCompetitionReelIn",{"position":${position}}]`);
             }, 1000);

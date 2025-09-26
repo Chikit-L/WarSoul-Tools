@@ -1,5 +1,5 @@
 import { logMessage } from "./utils.js";
-import { registMessageHandler, registSendHookHandler, wsSend } from "./connection.js";
+import { registMessageHandler, registOneTimeResponseHandler, registSendHookHandler, requestIdCounter, wsSend } from "./connection.js";
 import { atkSpMap, darkGoldData, equipmentEnhanceMap, equipmentsData, relicData, runeData, starAttrMap, weaponSpecialParse } from "./equipments.js";
 
 export const characterInfo = {};
@@ -30,33 +30,35 @@ registMessageHandler(/^434\[/, (obj) => {
     return obj;
 });
 
-// See user info
-registMessageHandler(/^4338\[/, (obj) => {
-    const playerData = obj[0].data;
-    logMessage(`Other Character Info Updated:`);
-    logMessage(playerData);
-    return playerData;
-});
-
-registSendHookHandler(/\["seeUserInfo",/, (message) => {
-    const startNumber = parseInt(message.match(/^\d+/)?.[0]);
-    return {
-        responseRegex: new RegExp(`^${startNumber + 100}`),
-        handler: (obj, other) => {
-            const playerData = obj[0].data;
-            playerData.parsed = parseCharacterEquipment(playerData);
-            logMessage(`Other Character Info Updated:`);
-            logMessage(playerData.parsed);
-        }
-    }
-});
+// registSendHookHandler(/\["seeUserInfo",/, (message) => {
+//     const startNumber = parseInt(message.match(/^\d+/)?.[0]);
+//     return {
+//         responseRegex: new RegExp(`^${startNumber + 100}`),
+//         handler: (obj, other) => {
+//             const playerData = obj[0].data;
+//             playerData.parsed = parseCharacterEquipment(playerData);
+//             logMessage(`Other Character Info Updated:`);
+//             logMessage(playerData.parsed);
+//         }
+//     }
+// });
 
 export function getUserInfo(userId) {
-    wsSend(`4224["seeUserInfo",{"userId":${userId}}]`);
+    const requestId = `42${requestIdCounter}`;
+    wsSend(`${requestId}["seeUserInfo",{"userId":${userId}}]`);
+    registOneTimeResponseHandler(
+        new RegExp(`^${parseInt(requestId)+100}\\[`),
+        (obj, other) => {
+            return obj[0].data;
+        }
+    ).then((obj, other) => {
+        const playerData = obj;
+        logMessage(playerData);
+    });
 }
 
 export function refreshCharacterInfo() {
-    wsSend(`424["init",{}]`);
+    wsSend(`42${requestIdCounter}["init",{}]`);
 }
 
 function parseCharacterEquipment(character) {
@@ -91,11 +93,11 @@ function parseCharacterEquipment(character) {
                 ...weapon
             };
         }
-        runeList = character.runeList.filter(item => item !== "").map(rune => {
+        runeList = character.runeList.filter(item => item && item !== "").map(rune => {
             rune.origin = runeData.runeCollection[rune.runeId];
             return rune;
         });
-        relicList = character.relicList.filter(item => item !== "").map(relic => {
+        relicList = character.relicList.filter(item => item && item !== "").map(relic => {
             relic.origin = relicData[relic.relicId];
             return relic;
         });
