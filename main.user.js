@@ -2,7 +2,7 @@
 // ==UserScript==
 // @name           WarSoul-Tools
 // @namespace      WarSoul-Tools
-// @version        0.2.1
+// @version        0.3.0
 // @author         BKN46
 // @description    WarSoul实用工具
 // @icon           https://www.milkywayidle.com/favicon.svg
@@ -15,6 +15,9 @@
 
   function removeLeadingNumbers(str) {
     return str.replace(/^\d+/, '');
+  }
+  function parseWSmessage(str) {
+    return JSON.parse(removeLeadingNumbers(str));
   }
   function logMessage(message) {
     console.log("[WarSoul-Tools]", message);
@@ -1789,7 +1792,7 @@
   function weaponSpecialParse(stats, effect) {
     if (stats[effect.key] !== undefined) {
       const runeKey = `${effect.key}Rune`;
-      // TODO: 更多词条支持
+      // TODO:更多词条支持
       if (effect.key === 'split') {
         const splitRate = effect.data.rate * (1 + stats.splitRune) / 100;
         stats.split = stats.split + splitRate * effect.data.value;
@@ -1898,6 +1901,18 @@
       18: 21
     }
   };
+  function equipEquipment(equipmentId) {
+    wsSend(`42${requestIdCounter}["equipAcion",{"id":"${equipmentId}","action":"wear"}]`);
+  }
+  function equipRune(runeId, slot) {
+    wsSend(`42${requestIdCounter}["runeAction",{"id":"${runeId}","action":"wear","index":${slot}}]`);
+  }
+  function unequipRune(runeId) {
+    wsSend(`42${requestIdCounter}["runeAction",{"id":"${runeId}","action":"remove"}]`);
+  }
+  function equipPet(petId) {
+    wsSend(`42${requestIdCounter}["setPetFight",{"id":"${petId}"}]`);
+  }
 
   const characterInfo = {};
 
@@ -1913,18 +1928,13 @@
       characterInfo.parsed = parsed;
       logMessage(`Character Equipment Parsed:`);
       logMessage(parsed);
-      const attrPanel = document.querySelector(".user-attrs");
-      let dpsEle = document.getElementById("wst-dps");
-      if (!dpsEle) {
-        dpsEle = document.createElement("div");
-        dpsEle.id = "wst-dps";
-        dpsEle.style.fontSize = "14px";
-        attrPanel.insertBefore(dpsEle, attrPanel.firstElementChild?.nextElementSibling || attrPanel.firstElementChild);
-      }
-      dpsEle.innerText = `裸DPS估算: ${parsed.stats.dpsRaw.toFixed(0)}`;
+      updateCharacterInfoPanelDps();
     }, 1000);
     return obj;
   });
+  function refreshCharacterInfo() {
+    wsSend(`42${requestIdCounter}["init",{}]`);
+  }
   function parseCharacterEquipment(character) {
     let weaponList = character.equippedList || {};
     let fightPet = (character.petList || []).find(pet => pet.id == character.fightPetId);
@@ -1933,7 +1943,7 @@
     if (character.itemList) {
       // 玩家
       Object.entries(weaponList).forEach(([key, value]) => {
-        const item = character.itemList.find(item => item.id === value);
+        const item = character.itemList.find(item => item.id === value || item.id === value?.id);
         item.origin = equipmentsData[item.equipId];
         weaponList[key] = item;
       });
@@ -2110,6 +2120,71 @@
       stats
     };
   }
+  function updateCharacterInfoPanelDps() {
+    const attrPanel = document.querySelector(".user-attrs");
+    let dpsEle = document.getElementById("wst-dps");
+    if (!dpsEle) {
+      dpsEle = document.createElement("div");
+      dpsEle.id = "wst-dps";
+      dpsEle.style.fontSize = "14px";
+      attrPanel.insertBefore(dpsEle, attrPanel.firstElementChild?.nextElementSibling || attrPanel.firstElementChild);
+    }
+    dpsEle.innerText = `裸DPS估算: ${characterInfo.parsed.stats.dpsRaw.toFixed(0)}`;
+  }
+  registSendHookHandler(/\["useEquipRoutine",/, message => {
+    const obj = parseWSmessage(message);
+    const routineId = obj[1].id;
+    const routine = characterInfo.equippedRoutineList.find(r => r.id === routineId);
+    if (!routine) {
+      logMessage(`Cannot find routine ${routineId} in characterInfo`);
+      return;
+    }
+    characterInfo.equippedList = routine.equippedList;
+    characterInfo.runeEquippedList = routine?.runeEquippedList || [];
+    characterInfo.relicEquippedList = routine?.relicEquippedList || [];
+    characterInfo.parsed = parseCharacterEquipment(characterInfo);
+    updateCharacterInfoPanelDps();
+    return;
+  });
+  registSendHookHandler(/\["equipAcion",/, message => {
+    const obj = parseWSmessage(message);
+    const weaponId = obj[1].id;
+    const action = obj[1].action;
+    const nowRoutine = characterInfo.equippedRoutineList.find(r => r.id === characterInfo.equippedRoutineId);
+    if (action == "wear") {
+      const weapon = characterInfo.itemList.find(item => item.id === weaponId);
+      const weaponType = equipmentsData[weapon.equipId].type;
+      characterInfo.equippedList[weaponType] = weaponId;
+      if (nowRoutine) {
+        nowRoutine.equippedList[weaponType] = weaponId;
+      }
+    }
+    characterInfo.parsed = parseCharacterEquipment(characterInfo);
+    updateCharacterInfoPanelDps();
+    return;
+  });
+  registSendHookHandler(/\["runeAction",/, message => {
+    const obj = parseWSmessage(message);
+    const runeId = obj[1].id;
+    const action = obj[1].action;
+    const index = obj[1].index;
+    const nowRoutine = characterInfo.equippedRoutineList.find(r => r.id === characterInfo.equippedRoutineId);
+    if (action == "wear") {
+      while (index >= characterInfo.runeEquippedList.length) {
+        characterInfo.runeEquippedList.push('');
+      }
+      characterInfo.runeEquippedList[index] = runeId;
+      if (nowRoutine) {
+        while (index >= nowRoutine.runeEquippedList.length) {
+          nowRoutine.runeEquippedList.push('');
+        }
+        nowRoutine.runeEquippedList[index] = runeId;
+      }
+    }
+    characterInfo.parsed = parseCharacterEquipment(characterInfo);
+    updateCharacterInfoPanelDps();
+    return;
+  });
 
   // 判断战斗时间内是否能打过
   let maxTime = 0;
@@ -2126,7 +2201,9 @@
       const timerEls = fightPage?.querySelectorAll('.fight-over-timer');
       const timerEl = timerEls[timerEls.length - 1];
       const timeLeft = parseFightTime(timerEl.innerText);
-      if (maxTime === 0 && timeLeft > 30) {
+      if (maxTime === 0 && timeLeft > 185) {
+        maxTime = 300;
+      } else if (maxTime === 0 && timeLeft > 30) {
         maxTime = 180;
       } else if (maxTime === 0 && timeLeft > 10) {
         maxTime = 30;
@@ -2204,6 +2281,7 @@
 
   registSendHookHandler(/\["fishingCompetitionThrowRod",/, message => {
     const startNumber = parseInt(message.match(/^\d+/)?.[0]);
+    const returnButton = Array.from(document.querySelector('.fishing-competition').querySelectorAll('button')).find(btn => btn.innerText === '返回')?.[0];
     return {
       responseRegex: new RegExp(`^${startNumber + 100}`),
       handler: (obj, other) => {
@@ -2212,13 +2290,200 @@
         logMessage(`Fishing Competition: Fish appeared at position ${position} est size ${fishData.size}, reeling in...`);
         setTimeout(() => {
           wsSend(`${startNumber + 1}["fishingCompetitionReelIn",{"position":${position}}]`);
+          if (returnButton) {
+            returnButton.click();
+          }
         }, 1000);
       }
     };
   });
 
+  const localEquipmentSet = loadFromLocalStorage("equipmentsSetLocal", {});
+  function saveEquipmentSet(name) {
+    const equipmentSet = {
+      name,
+      equippedList: characterInfo.equippedList,
+      runeEquippedList: characterInfo?.runeEquippedList,
+      relicEquippedList: characterInfo?.relicEquippedList,
+      fightPetId: characterInfo?.fightPetId
+    };
+    localEquipmentSet[name] = equipmentSet;
+    saveToLocalStorage("equipmentsSetLocal", localEquipmentSet);
+  }
+  function applyFromEquipmentSet(name) {
+    const equipmentSet = localEquipmentSet[name];
+    if (!equipmentSet) {
+      logMessage(`Equipment set ${name} not found`);
+      return;
+    }
+    Object.values(equipmentSet.equippedList).forEach(equipment => {
+      equipEquipment(equipment.id);
+    });
+    characterInfo.runeEquippedList?.forEach((runeId, index) => {
+      if (runeId) {
+        unequipRune(runeId);
+      }
+    });
+    equipmentSet.runeEquippedList?.forEach((runeId, index) => {
+      if (runeId) {
+        equipRune(runeId, index);
+      }
+    });
+    equipPet(equipmentSet.fightPetId);
+    setTimeout(() => {
+      refreshCharacterInfo();
+    }, 500);
+  }
+  function addLocalEquipmentSetPanel() {
+    const equipList = document.querySelector('.equip-list');
+    const elSelect = equipList.querySelector('.el-select');
+    const equipmentSetPanel = document.createElement('div');
+    equipmentSetPanel.className = 'equipment-set-panel';
+
+    // 创建控制区域
+    const controlArea = document.createElement('div');
+    controlArea.style.cssText = `
+    display: flex;
+    align-items: center;
+    padding: 3px;
+    gap: 3px;
+  `;
+
+    // 创建套装选择器
+    const setSelector = document.createElement('select');
+    setSelector.className = 'equipment-set-selector';
+    setSelector.style.cssText = `
+    flex: 1;
+    font-size: 10px;
+    border: 1px solid #ccc;
+    border-radius: 4px;
+  `;
+
+    // 更新选择器选项
+    function updateSelectorOptions() {
+      setSelector.innerHTML = '<option value="">选择套装...</option>';
+      Object.keys(localEquipmentSet).forEach(setName => {
+        const option = document.createElement('option');
+        option.value = setName;
+        option.textContent = setName;
+        setSelector.appendChild(option);
+      });
+    }
+
+    // 创建添加按钮
+    const addButton = document.createElement('button');
+    addButton.textContent = '+';
+    addButton.title = '保存当前装备为新套装';
+    addButton.style.cssText = `
+    border: 1px solid #4CAF50;
+    border-radius: 4px;
+    background-color: #4CAF50;
+    color: white;
+    font-size: 10px;
+    font-weight: bold;
+    cursor: pointer;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+  `;
+    addButton.addEventListener('click', () => {
+      const setName = prompt('请输入套装名称:');
+      if (setName && setName.trim()) {
+        saveEquipmentSet(setName.trim());
+        updateSelectorOptions();
+        setSelector.value = setName.trim();
+        logMessage(`套装 "${setName.trim()}" 已保存`);
+      }
+    });
+
+    // 创建删除按钮
+    const deleteButton = document.createElement('button');
+    deleteButton.textContent = '-';
+    deleteButton.title = '删除选中的套装';
+    deleteButton.style.cssText = `
+    border: 1px solid #f44336;
+    border-radius: 4px;
+    background-color: #f44336;
+    color: white;
+    font-size: 10px;
+    font-weight: bold;
+    cursor: pointer;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+  `;
+    deleteButton.addEventListener('click', () => {
+      const selectedSet = setSelector.value;
+      if (!selectedSet) {
+        alert('请先选择要删除的套装');
+        return;
+      }
+      if (confirm(`确定要删除套装 "${selectedSet}" 吗？`)) {
+        delete localEquipmentSet[selectedSet];
+        saveToLocalStorage("equipmentsSetLocal", localEquipmentSet);
+        updateSelectorOptions();
+        logMessage(`套装 "${selectedSet}" 已删除`);
+      }
+    });
+
+    // 创建应用按钮
+    const applyButton = document.createElement('button');
+    applyButton.textContent = '应用';
+    applyButton.title = '应用选中的套装';
+    applyButton.style.cssText = `
+    font-size: 10px;
+    border: 1px solid #2196F3;
+    border-radius: 4px;
+    background-color: #2196F3;
+    color: white;
+    cursor: pointer;
+  `;
+    applyButton.addEventListener('click', () => {
+      const selectedSet = setSelector.value;
+      if (!selectedSet) {
+        alert('请先选择要应用的套装');
+        return;
+      }
+      applyFromEquipmentSet(selectedSet);
+      logMessage(`套装 "${selectedSet}" 已应用`);
+    });
+
+    // 套装选择变化事件
+    setSelector.addEventListener('change', () => {
+      setSelector.value;
+    });
+
+    // 组装控制区域
+    controlArea.appendChild(setSelector);
+    controlArea.appendChild(addButton);
+    controlArea.appendChild(deleteButton);
+    controlArea.appendChild(applyButton);
+
+    // 组装面板
+    equipmentSetPanel.appendChild(controlArea);
+
+    // 初始化选择器选项
+    updateSelectorOptions();
+    elSelect.insertAdjacentElement('afterend', equipmentSetPanel);
+  }
+
+  // 初始化装备套装面板
+  function initEquipmentSetPanel() {
+    // 等待页面元素加载完成
+    const checkAndInit = () => {
+      const equipList = document.querySelector('.equip-list');
+      if (equipList) {
+        addLocalEquipmentSetPanel();
+      } else {
+        setTimeout(checkAndInit, 1000);
+      }
+    };
+    setTimeout(checkAndInit, 2000);
+  }
+
   hookWS();
   hookHTTP();
+  initEquipmentSetPanel();
   // injectDebugTool();
 
   logMessage("WarSoul-Tools loaded.");

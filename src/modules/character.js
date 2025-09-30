@@ -1,4 +1,4 @@
-import { logMessage } from "./utils.js";
+import { logMessage, parseWSmessage } from "./utils.js";
 import { registMessageHandler, registOneTimeResponseHandler, registSendHookHandler, requestIdCounter, wsSend } from "./connection.js";
 import { atkSpMap, darkGoldData, equipmentEnhanceMap, equipmentsData, relicData, runeData, starAttrMap, weaponSpecialParse } from "./equipments.js";
 
@@ -16,16 +16,7 @@ registMessageHandler(/^434\[/, (obj) => {
         characterInfo.parsed = parsed;
         logMessage(`Character Equipment Parsed:`);
         logMessage(parsed);
-
-        const attrPanel = document.querySelector(".user-attrs");
-        let dpsEle = document.getElementById("wst-dps");
-        if (!dpsEle) {
-            dpsEle = document.createElement("div");
-            dpsEle.id = "wst-dps";
-            dpsEle.style.fontSize = "14px";
-            attrPanel.insertBefore(dpsEle, attrPanel.firstElementChild?.nextElementSibling || attrPanel.firstElementChild);
-        }
-        dpsEle.innerText = `裸DPS估算: ${parsed.stats.dpsRaw.toFixed(0)}`;
+        updateCharacterInfoPanelDps();
     }, 1000);
     return obj;
 });
@@ -69,7 +60,7 @@ function parseCharacterEquipment(character) {
     if (character.itemList) {
         // 玩家
         Object.entries(weaponList).forEach(([key, value]) => {
-            const item = character.itemList.find(item => item.id === value);
+            const item = character.itemList.find(item => item.id === value || item.id === value?.id);
             item.origin = equipmentsData[item.equipId];
             weaponList[key] = item;
         });
@@ -242,3 +233,82 @@ function parseCharacterEquipment(character) {
         stats,
     };
 }
+
+function updateCharacterInfoPanelDps() {
+    const attrPanel = document.querySelector(".user-attrs");
+    let dpsEle = document.getElementById("wst-dps");
+    if (!dpsEle) {
+        dpsEle = document.createElement("div");
+        dpsEle.id = "wst-dps";
+        dpsEle.style.fontSize = "14px";
+        attrPanel.insertBefore(dpsEle, attrPanel.firstElementChild?.nextElementSibling || attrPanel.firstElementChild);
+    }
+    dpsEle.innerText = `裸DPS估算: ${characterInfo.parsed.stats.dpsRaw.toFixed(0)}`;
+}
+
+registSendHookHandler(/\["useEquipRoutine",/, (message) => {
+    const obj = parseWSmessage(message);
+    const routineId = obj[1].id;
+    const routine = characterInfo.equippedRoutineList.find(r => r.id === routineId);
+    if (!routine) {
+        logMessage(`Cannot find routine ${routineId} in characterInfo`);
+        return;
+    }
+
+    characterInfo.equippedList = routine.equippedList;
+    characterInfo.runeEquippedList = routine?.runeEquippedList || [];
+    characterInfo.relicEquippedList = routine?.relicEquippedList || [];
+
+    characterInfo.parsed = parseCharacterEquipment(characterInfo);
+    updateCharacterInfoPanelDps();
+
+    return;
+});
+
+registSendHookHandler(/\["equipAcion",/, (message) => {
+    const obj = parseWSmessage(message);
+    const weaponId = obj[1].id;
+    const action = obj[1].action;
+    const nowRoutine = characterInfo.equippedRoutineList.find(r => r.id === characterInfo.equippedRoutineId);
+
+    if (action == "wear") {
+        const weapon = characterInfo.itemList.find(item => item.id === weaponId);
+        const weaponType = equipmentsData[weapon.equipId].type;
+        characterInfo.equippedList[weaponType] = weaponId;
+        if (nowRoutine) {
+            nowRoutine.equippedList[weaponType] = weaponId;
+        }
+    }
+
+    characterInfo.parsed = parseCharacterEquipment(characterInfo);
+    updateCharacterInfoPanelDps();
+
+    return;
+});
+
+registSendHookHandler(/\["runeAction",/, (message) => {
+    const obj = parseWSmessage(message);
+    const runeId = obj[1].id;
+    const action = obj[1].action;
+    const index = obj[1].index;
+    const nowRoutine = characterInfo.equippedRoutineList.find(r => r.id === characterInfo.equippedRoutineId);
+
+    if (action == "wear") {
+        while (index >= characterInfo.runeEquippedList.length) {
+            characterInfo.runeEquippedList.push('');
+        }
+        characterInfo.runeEquippedList[index] = runeId;
+
+        if (nowRoutine) {
+            while (index >= nowRoutine.runeEquippedList.length) {
+                nowRoutine.runeEquippedList.push('');
+            }
+            nowRoutine.runeEquippedList[index] = runeId;
+        }
+    }
+
+    characterInfo.parsed = parseCharacterEquipment(characterInfo);
+    updateCharacterInfoPanelDps();
+
+    return;
+});

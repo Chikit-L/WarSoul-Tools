@@ -16,7 +16,9 @@ setInterval(() => {
     const timerEls = fightPage?.querySelectorAll('.fight-over-timer');
     const timerEl = timerEls[timerEls.length - 1];
     const timeLeft = parseFightTime(timerEl.innerText);
-    if (maxTime === 0 && timeLeft > 30) {
+    if (maxTime === 0 && timeLeft > 185) {
+      maxTime = 300;
+    } else if (maxTime === 0 && timeLeft > 30) {
       maxTime = 180;
     } else if (maxTime === 0 && timeLeft > 10) {
       maxTime = 30;

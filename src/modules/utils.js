@@ -3,6 +3,10 @@ export function removeLeadingNumbers(str) {
   return str.replace(/^\d+/, '');
 }
 
+export function parseWSmessage(str) {
+  return JSON.parse(removeLeadingNumbers(str));
+}
+
 export function logMessage(message) {
   console.log("[WarSoul-Tools]", message);
 }
