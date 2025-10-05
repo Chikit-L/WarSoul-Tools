@@ -58,23 +58,34 @@ export const equipmentEnhanceMap = {
   },
 }
 
-export function weaponSpecialParse(stats, effect) {
+export function weaponSpecialParse(stats, effect, type="normal") {
+  const effectData = JSON.parse(JSON.stringify(effect.data));
+
+  if (type === "darkGold") {
+    const darkGoldEffectData = darkGoldData.darkGoldSpecialFactor[effect.key];
+    Object.keys(darkGoldEffectData).forEach(factorKey => {
+        if (effectData[factorKey] !== undefined) {
+            effectData[factorKey] = (effectData[factorKey] + 10) * darkGoldEffectData[factorKey];
+        }
+    });
+  }
+
   if (stats[effect.key] !== undefined) {
       const runeKey = `${effect.key}Rune`
       // TODO:更多词条支持
       if (effect.key === 'split') {
-          const splitRate = effect.data.rate * (1 + stats.splitRune) / 100;
-          stats.split = stats.split + splitRate * effect.data.value;
+          const splitRate = effectData.rate * (1 + stats.splitRune) / 100;
+          stats.split = stats.split + splitRate * effectData.value;
       } else if (effect.key === 'thump') {
-          stats.thump = stats.thump + effect.data.rate / 100 * effect.data.value
+          stats.thump = stats.thump + effectData.rate / 100 * effectData.value
       } else if (effect.key === 'swiftness') {
-          stats.swiftness += (effect.data.value - 1) + stats.swiftnessRune
+          stats.swiftness += (effectData.value - 1) + stats.swiftnessRune
       } else if (runeKey in stats) {
-          stats[effect.key] += effect.data.value + stats[runeKey];
-      } else if (effect.data.value) {
-          stats[effect.key] += effect.data.value;
-      } else if (effect.data.multiplier) {
-          stats[effect.key] += effect.data.multiplier;
+          stats[effect.key] += effectData.value + stats[runeKey];
+      } else if (effectData.value) {
+          stats[effect.key] += effectData.value;
+      } else if (effectData.multiplier) {
+          stats[effect.key] += effectData.multiplier;
       }
   }
 }

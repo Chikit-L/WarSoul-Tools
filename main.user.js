@@ -2,7 +2,7 @@
 // ==UserScript==
 // @name           WarSoul-Tools
 // @namespace      WarSoul-Tools
-// @version        0.3.0
+// @version        0.3.1
 // @author         BKN46
 // @description    WarSoul实用工具
 // @icon           https://www.milkywayidle.com/favicon.svg
@@ -1789,23 +1789,32 @@
       stat.crtd += equipmentEnhanceTable.crtd[level] || 0;
     }
   };
-  function weaponSpecialParse(stats, effect) {
+  function weaponSpecialParse(stats, effect, type = "normal") {
+    const effectData = JSON.parse(JSON.stringify(effect.data));
+    if (type === "darkGold") {
+      const darkGoldEffectData = darkGoldData.darkGoldSpecialFactor[effect.key];
+      Object.keys(darkGoldEffectData).forEach(factorKey => {
+        if (effectData[factorKey] !== undefined) {
+          effectData[factorKey] = (effectData[factorKey] + 10) * darkGoldEffectData[factorKey];
+        }
+      });
+    }
     if (stats[effect.key] !== undefined) {
       const runeKey = `${effect.key}Rune`;
       // TODO:更多词条支持
       if (effect.key === 'split') {
-        const splitRate = effect.data.rate * (1 + stats.splitRune) / 100;
-        stats.split = stats.split + splitRate * effect.data.value;
+        const splitRate = effectData.rate * (1 + stats.splitRune) / 100;
+        stats.split = stats.split + splitRate * effectData.value;
       } else if (effect.key === 'thump') {
-        stats.thump = stats.thump + effect.data.rate / 100 * effect.data.value;
+        stats.thump = stats.thump + effectData.rate / 100 * effectData.value;
       } else if (effect.key === 'swiftness') {
-        stats.swiftness += effect.data.value - 1 + stats.swiftnessRune;
+        stats.swiftness += effectData.value - 1 + stats.swiftnessRune;
       } else if (runeKey in stats) {
-        stats[effect.key] += effect.data.value + stats[runeKey];
-      } else if (effect.data.value) {
-        stats[effect.key] += effect.data.value;
-      } else if (effect.data.multiplier) {
-        stats[effect.key] += effect.data.multiplier;
+        stats[effect.key] += effectData.value + stats[runeKey];
+      } else if (effectData.value) {
+        stats[effect.key] += effectData.value;
+      } else if (effectData.multiplier) {
+        stats[effect.key] += effectData.multiplier;
       }
     }
   }
@@ -1922,6 +1931,7 @@
       return obj;
     }
     Object.assign(characterInfo, obj[0].data);
+    characterInfo.isAdvance = characterInfo.advanceLevel == 4;
     logMessage(`Character Info Updated ${characterInfo.id}`);
     setTimeout(() => {
       const parsed = parseCharacterEquipment(characterInfo);
@@ -1953,7 +1963,7 @@
         return rune;
       });
       relicList = relicList.map(relic => {
-        relic = character.itemList.find(item => item.id === relic);
+        relic = character.relicList.find(item => item.id === relic);
         relic.origin = relicData[relic.relicId];
         return relic;
       });
@@ -2041,8 +2051,11 @@
       }
       // 暗金属性
       for (let effect of weapon?.darkGoldAttrs?.basic || []) {
-        stats[effect[0]] += effect[1] * darkGoldData.darkGoldBasicFactor[effect[0]];
+        stats[effect[0]] += (effect[1] + 5) * darkGoldData.darkGoldBasicFactor[effect[0]];
       }
+
+      // 精造属性
+      stats.ad += 0.4 * (weapon.refineAttr?.[0] || 0);
     });
 
     // 符石
@@ -2093,24 +2106,35 @@
       }
       // 暗金特效 TODO: bugfix
       for (let effect of weapon.darkGoldAttrs?.special || []) {
-        weaponSpecialParse(stats, effect);
+        weaponSpecialParse(stats, effect, "darkGold");
       }
       // 刻印特效
       for (let effect of weapon.engrave?.special || []) {
-        weaponSpecialParse(stats, effect);
+        weaponSpecialParse(stats, effect, "darkGold");
       }
     });
+
+    // 临时buff
+    for (let buff of characterInfo.temporaryBuff || []) {
+      Object.entries(buff.basic || {}).forEach(([attr, val]) => {
+        stats[attr] += val;
+      });
+    }
 
     // 最终攻击力计算
     stats.finalAtk = stats.atk * (1 + stats.break / 100);
     // 最终攻速计算
     stats.finalAtksp = (stats.atksp / 100 - 1) * (1 + stats.swiftness) + 1;
     // 拟合公式
-    Object.entries(atkSpMap).forEach(([atkSp, actAtkSp]) => {
-      if (stats.finalAtksp >= parseFloat(atkSp)) {
-        stats.actualAtksp = actAtkSp / 180;
-      }
-    });
+    if (characterInfo.isAdvance) {
+      stats.actualAtksp = stats.finalAtksp;
+    } else {
+      Object.entries(atkSpMap).forEach(([atkSp, actAtkSp]) => {
+        if (stats.finalAtksp >= parseFloat(atkSp)) {
+          stats.actualAtksp = actAtkSp / 180;
+        }
+      });
+    }
     stats.dpsRaw = stats.actualAtksp * Math.min(stats.hr / 100, 1) * (stats.atk * Math.max(1 - stats.crt / 100, 0) + stats.crtd / 100 * stats.atk * Math.min(stats.crt / 100, 1) + stats.split * stats.chasing + stats.split * stats.heavyInjury * Math.min(stats.crt / 100, 1) + stats.split * stats.thump + stats.split * stats.shadowBlade + stats.split * stats.tearInjury) * (1 + stats.sharp / 100) * (1 + stats.ad / 100);
     return {
       weaponList,
@@ -2188,6 +2212,8 @@
 
   // 判断战斗时间内是否能打过
   let maxTime = 0;
+  const hpHistory = []; // 记录过去的血量百分比，用于计算变化率
+
   setInterval(() => {
     const dungeonPage = document.querySelector('.dungeon-page');
     let fightPage = dungeonPage.querySelector('.person-fight');
@@ -2211,6 +2237,34 @@
       const timeLeftPercent = timeLeft / maxTime;
       const hpEl = fightPage.querySelector('.el-progress-bar__innerText');
       const hpLeftPercent = parseFloat(hpEl.innerText.replace(' %', '')) / 100;
+
+      // 记录血量历史，保留最近10个采样
+      hpHistory.push({
+        hp: hpLeftPercent,
+        time: timeLeft,
+        timestamp: Date.now()
+      });
+      if (hpHistory.length > 10) {
+        hpHistory.shift();
+      }
+
+      // 计算delta（平均变化率：血量变化 / 时间变化）
+      let delta = 0;
+      let predictedFinalHp = hpLeftPercent;
+      if (hpHistory.length >= 2) {
+        const oldestSample = hpHistory[0];
+        const newestSample = hpHistory[hpHistory.length - 1];
+        const hpChange = newestSample.hp - oldestSample.hp; // 注意：血量是减少的，所以这个值应该是负数
+        const timeChange = oldestSample.time - newestSample.time; // 时间是减少的，所以用旧-新
+
+        if (timeChange > 0) {
+          delta = hpChange / timeChange; // 每秒血量变化率（负数表示减少）
+          // 基于当前血量和变化率预测最终血量
+          predictedFinalHp = hpLeftPercent + delta * timeLeft;
+          // 限制预测值在合理范围内
+          predictedFinalHp = Math.max(0, Math.min(1, predictedFinalHp));
+        }
+      }
       let diffEl = timerEl.parentElement.querySelector('.time-diff-indicator');
       if (!diffEl) {
         diffEl = document.createElement('div');
@@ -2219,18 +2273,25 @@
         diffEl.style.textAlign = 'center';
         timerEl.parentElement.appendChild(diffEl);
       }
-      if (timeLeftPercent < hpLeftPercent - 0.02) {
+
+      // 根据预测最终血量调整颜色
+      if (predictedFinalHp > 0.05) {
         diffEl.style.backgroundColor = 'red';
-      } else if (timeLeftPercent < hpLeftPercent + 0.01) {
+      } else if (predictedFinalHp > 0.02) {
         diffEl.style.backgroundColor = 'orange';
-      } else if (timeLeftPercent < hpLeftPercent + 0.03) {
+      } else if (predictedFinalHp > -0.02) {
         diffEl.style.backgroundColor = 'yellow';
       } else {
         diffEl.style.backgroundColor = 'green';
       }
-      diffEl.innerText = `(${((timeLeftPercent - hpLeftPercent) * 100).toFixed(2)}%)`;
+      const diff = timeLeftPercent - hpLeftPercent;
+      diffEl.innerText = `(${(diff * 100).toFixed(2)}%)`;
+      if (hpHistory.length >= 2) {
+        diffEl.innerHTML += `<br>Δ: ${(delta * 1000).toFixed(3)}%/s<br>预测最终: ${(predictedFinalHp * 100).toFixed(2)}%`;
+      }
     } else {
       maxTime = 0;
+      hpHistory.length = 0; // 清空历史记录
     }
   }, 1000);
   function parseFightTime(timeStr) {
@@ -2240,6 +2301,7 @@
 
   // Actual attack speed calculation
   const atkList = [];
+  let isAdvanceFight = false;
   registMessageHandler(/^42\["fightRes/, obj => {
     const atkInfoList = obj[1].atkInfoList;
     atkList.push({
@@ -2249,6 +2311,18 @@
     if (atkList.length > 500) {
       atkList.shift();
     }
+    isAdvanceFight = false;
+  });
+  registMessageHandler(/^42\["advanceFightRes/, obj => {
+    const atkInfoList = obj[1].atkInfoList;
+    atkList.push({
+      atk: atkInfoList,
+      timestamp: Date.now()
+    });
+    if (atkList.length > 500) {
+      atkList.shift();
+    }
+    isAdvanceFight = true;
   });
   setInterval(() => {
     const fightPage = document.querySelector('.fight-page');
@@ -2258,7 +2332,7 @@
     const totalAtk = atkList.reduce((sum, atkInfo) => sum + atkInfo.atk.length, 0);
     const avgBasicAtkSpd = atkList.length / ((atkList[atkList.length - 1].timestamp - atkList[0].timestamp) / 1000);
     const avgAtkSpd = totalAtk / ((atkList[atkList.length - 1].timestamp - atkList[0].timestamp) / 1000);
-    const fightUserList = document.querySelector('.fight-user-list');
+    const fightUserList = document.querySelectorAll('.fight-user-list')[isAdvanceFight ? 1 : 0];
     const hitAccuracy = atkList.reduce((sum, atkInfo) => {
       const unhitCount = atkInfo.atk.filter(atk => atk.unHit).length;
       return sum + (atkInfo.atk.length > 0 ? atkInfo.atk.length - unhitCount : 0);
@@ -2281,7 +2355,7 @@
 
   registSendHookHandler(/\["fishingCompetitionThrowRod",/, message => {
     const startNumber = parseInt(message.match(/^\d+/)?.[0]);
-    const returnButton = Array.from(document.querySelector('.fishing-competition').querySelectorAll('button')).find(btn => btn.innerText === '返回')?.[0];
+    const returnButton = Array.from(document.querySelector('.fishing-competition').querySelectorAll('button')).find(btn => btn.innerText === '返回');
     return {
       responseRegex: new RegExp(`^${startNumber + 100}`),
       handler: (obj, other) => {

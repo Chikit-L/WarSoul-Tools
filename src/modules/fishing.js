@@ -3,7 +3,7 @@ import { registMessageHandler, registSendHookHandler, wsSend } from "./connectio
 
 registSendHookHandler(/\["fishingCompetitionThrowRod",/, (message) => {
     const startNumber = parseInt(message.match(/^\d+/)?.[0]);
-    const returnButton = Array.from(document.querySelector('.fishing-competition').querySelectorAll('button')).find(btn => btn.innerText === '返回')?.[0];
+    const returnButton = Array.from(document.querySelector('.fishing-competition').querySelectorAll('button')).find(btn => btn.innerText === '返回');
     return {
         responseRegex: new RegExp(`^${startNumber + 100}`),
         handler: (obj, other) => {

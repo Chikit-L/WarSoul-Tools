@@ -1,10 +1,11 @@
 {
   "name": "WarSoul-Tools",
   "author": "BKN46",
-  "version": "0.3.0",
+  "version": "0.3.1",
   "scripts": {
     "dev": "rollup --config --environment BUILD:development --watch",
-    "build": "rollup --config && mkdir -p build && cp main.user.js build/WSTools-$npm_package_version.js"
+    "build": "rollup --config && mkdir -p build && cp main.user.js build/WSTools-$npm_package_version.js",
+    "wbuild": "rollup --config"
   },
   "devDependencies": {
     "@homegrown/rollup-plugin-postcss-modules": "^2.0.2",

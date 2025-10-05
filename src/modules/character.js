@@ -10,6 +10,7 @@ registMessageHandler(/^434\[/, (obj) => {
         return obj;
     }
     Object.assign(characterInfo, obj[0].data);
+    characterInfo.isAdvance = characterInfo.advanceLevel == 4;
     logMessage(`Character Info Updated ${characterInfo.id}`);
     setTimeout(() => {
         const parsed = parseCharacterEquipment(characterInfo);
@@ -70,7 +71,7 @@ function parseCharacterEquipment(character) {
             return rune;
         });
         relicList = relicList.map(relic => {
-            relic = character.itemList.find(item => item.id === relic);
+            relic = character.relicList.find(item => item.id === relic);
             relic.origin = relicData[relic.relicId];
             return relic;
         });
@@ -144,8 +145,11 @@ function parseCharacterEquipment(character) {
         }
         // 暗金属性
         for (let effect of (weapon?.darkGoldAttrs?.basic || [])) {
-            stats[effect[0]] += effect[1] * darkGoldData.darkGoldBasicFactor[effect[0]];
+            stats[effect[0]] += (effect[1] + 5) * darkGoldData.darkGoldBasicFactor[effect[0]];
         }
+
+        // 精造属性
+        stats.ad += 0.4 * (weapon.refineAttr?.[0] || 0);
     });
 
     // 符石
@@ -196,24 +200,35 @@ function parseCharacterEquipment(character) {
         }
         // 暗金特效 TODO: bugfix
         for (let effect of (weapon.darkGoldAttrs?.special|| [])) {
-            weaponSpecialParse(stats, effect);
+            weaponSpecialParse(stats, effect, "darkGold");
         }
         // 刻印特效
         for (let effect of (weapon.engrave?.special|| [])) {
-            weaponSpecialParse(stats, effect);
+            weaponSpecialParse(stats, effect, "darkGold");
         }
     });
+
+    // 临时buff
+    for (let buff of (characterInfo.temporaryBuff || [])) {
+        Object.entries(buff.basic || {}).forEach(([attr, val]) => {
+            stats[attr] += val;
+        });
+    }
 
     // 最终攻击力计算
     stats.finalAtk = stats.atk * (1 + stats.break / 100)
     // 最终攻速计算
     stats.finalAtksp = (stats.atksp / 100 - 1) * (1 + stats.swiftness) + 1;
     // 拟合公式
-    Object.entries(atkSpMap).forEach(([atkSp, actAtkSp]) => {
-        if (stats.finalAtksp >= parseFloat(atkSp)) {
-            stats.actualAtksp = actAtkSp / 180;
-        }
-    });
+    if (characterInfo.isAdvance) {
+        stats.actualAtksp = stats.finalAtksp;
+    } else {
+        Object.entries(atkSpMap).forEach(([atkSp, actAtkSp]) => {
+            if (stats.finalAtksp >= parseFloat(atkSp)) {
+                stats.actualAtksp = actAtkSp / 180;
+            }
+        });
+    }
 
     stats.dpsRaw = stats.actualAtksp * Math.min(stats.hr / 100, 1) * (
         stats.atk * Math.max(1 - stats.crt / 100, 0)+

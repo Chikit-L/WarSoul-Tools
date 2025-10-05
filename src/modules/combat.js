@@ -2,6 +2,7 @@ import { registMessageHandler } from "./connection.js";
 
 // 判断战斗时间内是否能打过
 let maxTime = 0;
+const hpHistory = []; // 记录过去的血量百分比，用于计算变化率
 
 setInterval(() => {
   const dungeonPage = document.querySelector('.dungeon-page');
@@ -27,6 +28,34 @@ setInterval(() => {
     const hpEl = fightPage.querySelector('.el-progress-bar__innerText');
     const hpLeftPercent = parseFloat(hpEl.innerText.replace(' %', '')) / 100;
 
+    // 记录血量历史，保留最近10个采样
+    hpHistory.push({
+      hp: hpLeftPercent,
+      time: timeLeft,
+      timestamp: Date.now()
+    });
+    if (hpHistory.length > 10) {
+      hpHistory.shift();
+    }
+
+    // 计算delta（平均变化率：血量变化 / 时间变化）
+    let delta = 0;
+    let predictedFinalHp = hpLeftPercent;
+    if (hpHistory.length >= 2) {
+      const oldestSample = hpHistory[0];
+      const newestSample = hpHistory[hpHistory.length - 1];
+      const hpChange = newestSample.hp - oldestSample.hp; // 注意：血量是减少的，所以这个值应该是负数
+      const timeChange = oldestSample.time - newestSample.time; // 时间是减少的，所以用旧-新
+      
+      if (timeChange > 0) {
+        delta = hpChange / timeChange; // 每秒血量变化率（负数表示减少）
+        // 基于当前血量和变化率预测最终血量
+        predictedFinalHp = hpLeftPercent + (delta * timeLeft);
+        // 限制预测值在合理范围内
+        predictedFinalHp = Math.max(0, Math.min(1, predictedFinalHp));
+      }
+    }
+
     let diffEl = timerEl.parentElement.querySelector('.time-diff-indicator');
     if (!diffEl) {
       diffEl = document.createElement('div');
@@ -36,20 +65,27 @@ setInterval(() => {
       timerEl.parentElement.appendChild(diffEl);
     }
 
-    if (timeLeftPercent < hpLeftPercent - 0.02) {
+    // 根据预测最终血量调整颜色
+    if (predictedFinalHp > 0.05) {
       diffEl.style.backgroundColor = 'red';
-    } else if (timeLeftPercent < hpLeftPercent + 0.01) {
+    } else if (predictedFinalHp > 0.02) {
       diffEl.style.backgroundColor = 'orange';
-    } else if (timeLeftPercent < hpLeftPercent + 0.03) {
+    } else if (predictedFinalHp > -0.02) {
       diffEl.style.backgroundColor = 'yellow';
     } else {
       diffEl.style.backgroundColor = 'green';
     }
+
+    const diff = (timeLeftPercent - hpLeftPercent);
     
-    diffEl.innerText = `(${((timeLeftPercent-hpLeftPercent)*100).toFixed(2)}%)`;
+    diffEl.innerText = `(${(diff*100).toFixed(2)}%)`;
+    if (hpHistory.length >= 2) {
+      diffEl.innerHTML += `<br>Δ: ${(delta*1000).toFixed(3)}%/s<br>预测最终: ${(predictedFinalHp*100).toFixed(2)}%`;
+    }
 
   } else {
     maxTime = 0;
+    hpHistory.length = 0; // 清空历史记录
   }
 }, 1000);
 
@@ -62,6 +98,7 @@ export function parseFightTime(timeStr) {
 
 // Actual attack speed calculation
 const atkList = [];
+let isAdvanceFight = false;
 
 registMessageHandler(/^42\["fightRes/, (obj) => {
     const atkInfoList = obj[1].atkInfoList;
@@ -72,6 +109,19 @@ registMessageHandler(/^42\["fightRes/, (obj) => {
     if (atkList.length > 500) {
       atkList.shift();
     }
+    isAdvanceFight = false;
+});
+
+registMessageHandler(/^42\["advanceFightRes/, (obj) => {
+    const atkInfoList = obj[1].atkInfoList;
+    atkList.push({
+      atk: atkInfoList,
+      timestamp: Date.now()
+    });
+    if (atkList.length > 500) {
+      atkList.shift();
+    }
+    isAdvanceFight = true;
 });
 
 setInterval(() => {
@@ -83,7 +133,7 @@ setInterval(() => {
   const avgBasicAtkSpd = (atkList.length / ((atkList[atkList.length - 1].timestamp - atkList[0].timestamp) / 1000));
   const avgAtkSpd = (totalAtk / ((atkList[atkList.length - 1].timestamp - atkList[0].timestamp) / 1000));
 
-  const fightUserList = document.querySelector('.fight-user-list');
+  const fightUserList = document.querySelectorAll('.fight-user-list')[isAdvanceFight ? 1 : 0];
 
   const hitAccuracy = atkList.reduce((sum, atkInfo) => {
     const unhitCount = atkInfo.atk.filter(atk => atk.unHit).length;
