@@ -1,12 +1,20 @@
-import { registMessageHandler, requestIdCounter, wsSend } from "./connection";
+import { registMessageHandler, registSendHookHandler, requestIdCounter, wsSend } from "./connection";
+import { parseWSmessage } from "./utils";
 
 // Get party rooms
-registMessageHandler(/^4325/, (obj) => {
-    
+registSendHookHandler(/\["getTeamFightRoom",/, (message) => {
+  const obj = parseWSmessage(message);
+  const rooms = obj[0].data;
 });
 
 // Join party room
-registMessageHandler(/^4327/, (obj) => {
+registSendHookHandler(/\["joinRoom",/, (message) => {
+  const obj = parseWSmessage(message);
+  const monster = obj[0].data.monster;
+});
+
+// Cancel party fight
+registSendHookHandler(/\["cancelTeamFight",/, (message) => {
 
 });
 
@@ -23,6 +31,8 @@ export function leavePartyRoom() {
   wsSend(`42${requestIdCounter}["quitRoom", {}]`);
 }
 
-export function startPartyCrackFight() {
-  wsSend(`42${requestIdCounter}["startCrackFight", {}]`);
+export function startFight(type) {
+  // type: crack, relicRuin
+  type = type.charAt(0).toUpperCase() + type.slice(1);
+  wsSend(`42${requestIdCounter}["start${type}Fight", {}]`);
 }

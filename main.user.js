@@ -2,7 +2,7 @@
 // ==UserScript==
 // @name           WarSoul-Tools
 // @namespace      WarSoul-Tools
-// @version        0.3.1
+// @version        0.3.2
 // @author         BKN46
 // @description    WarSoul实用工具
 // @icon           https://www.milkywayidle.com/favicon.svg
@@ -2262,7 +2262,7 @@
           // 基于当前血量和变化率预测最终血量
           predictedFinalHp = hpLeftPercent + delta * timeLeft;
           // 限制预测值在合理范围内
-          predictedFinalHp = Math.max(0, Math.min(1, predictedFinalHp));
+          // predictedFinalHp = Math.max(0, Math.min(1, predictedFinalHp));
         }
       }
       let diffEl = timerEl.parentElement.querySelector('.time-diff-indicator');
@@ -2287,7 +2287,7 @@
       const diff = timeLeftPercent - hpLeftPercent;
       diffEl.innerText = `(${(diff * 100).toFixed(2)}%)`;
       if (hpHistory.length >= 2) {
-        diffEl.innerHTML += `<br>Δ: ${(delta * 1000).toFixed(3)}%/s<br>预测最终: ${(predictedFinalHp * 100).toFixed(2)}%`;
+        diffEl.innerHTML += `<br>Δ: ${(delta * 100).toFixed(3)}%/s<br>预测最终: ${(predictedFinalHp * 100).toFixed(2)}%`;
       }
     } else {
       maxTime = 0;
@@ -2352,6 +2352,60 @@
     atkEl.appendChild(document.createElement('br'));
     atkEl.innerText += `命中率: ${(hitAccuracy * 100).toFixed(2)}% 暴击率: ${(criticalRate * 100).toFixed(2)}%`;
   }, 1000);
+  let autoChallengeEnabled = false;
+  setInterval(() => {
+    const dungeon = document.querySelector('.dungeon');
+    if (dungeon) {
+      const titleDiv = dungeon.querySelector('.title');
+      if (titleDiv && !dungeon.querySelector('.wstools-autochallenge-checkbox')) {
+        const checkbox = document.createElement('input');
+        checkbox.type = 'checkbox';
+        checkbox.className = 'wstools-autochallenge-checkbox';
+        checkbox.style.marginLeft = '8px';
+        titleDiv.insertAdjacentElement('afterend', checkbox);
+        checkbox.addEventListener('change', event => {
+          autoChallengeEnabled = event.target.checked;
+        });
+        const label = document.createElement('span');
+        label.innerText = '自动挑战';
+        titleDiv.insertAdjacentElement('afterend', label);
+      }
+    }
+  }, 1000);
+  const autoChallengeData = {
+    type: '',
+    level: 0
+  };
+  registSendHookHandler(/\["dailyChallenge",/, message => {
+    const obj = parseWSmessage(message);
+    autoChallengeData.type = obj[1].type;
+    autoChallengeData.level = obj[1].level;
+  });
+  registSendHookHandler(/\["cancelPersonFight",/, message => {
+    autoChallengeData.type = '';
+    autoChallengeData.level = 0;
+  });
+  function startDailyChallenge(type, level) {
+    // type: equip, gold, diamond
+    wsSend(`42${requestIdCounter}["dailyChallenge",{"type":"${type}","level":${level}}]`);
+  }
+  registMessageHandler(/^42\["personFightFail/, obj => {
+    if (autoChallengeEnabled && autoChallengeData.type && autoChallengeData.level) {
+      setTimeout(() => {
+        startDailyChallenge(autoChallengeData.type, autoChallengeData.level);
+      }, 2000);
+    }
+  });
+  registMessageHandler(/^42\["personFightCore/, obj => {
+    if (obj[1]?.monsterCurHp <= 0) {
+      if (autoChallengeEnabled && autoChallengeData.type && autoChallengeData.level) {
+        autoChallengeData.level += 1;
+        setTimeout(() => {
+          startDailyChallenge(autoChallengeData.type, autoChallengeData.level);
+        }, 2000);
+      }
+    }
+  });
 
   registSendHookHandler(/\["fishingCompetitionThrowRod",/, message => {
     const startNumber = parseInt(message.match(/^\d+/)?.[0]);
