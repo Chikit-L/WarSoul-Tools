@@ -2,7 +2,7 @@
 // ==UserScript==
 // @name           WarSoul-Tools
 // @namespace      WarSoul-Tools
-// @version        0.3.2
+// @version        0.4.0
 // @author         BKN46
 // @description    WarSoul实用工具
 // @icon           https://www.milkywayidle.com/favicon.svg
@@ -1807,6 +1807,9 @@
         stats.split = stats.split + splitRate * effectData.value;
       } else if (effect.key === 'thump') {
         stats.thump = stats.thump + effectData.rate / 100 * effectData.value;
+      } else if (effect.key === 'cruel') {
+        stats.cruel = stats.cruel + (effectData?.value || 0);
+        stats.cruelRatio = stats.cruelRatio + (effectData?.multiplier || 0);
       } else if (effect.key === 'swiftness') {
         stats.swiftness += effectData.value - 1 + stats.swiftnessRune;
       } else if (runeKey in stats) {
@@ -1816,6 +1819,27 @@
       } else if (effectData.multiplier) {
         stats[effect.key] += effectData.multiplier;
       }
+    } else if (!stats.igonoreSpecials.includes(effect.key)) {
+      stats.ignoreSpecials.push(effect.key);
+    }
+  }
+  function runeSpecialParse(stats, effect, typeFactor = 1.0) {
+    const key = `${effect.key}Rune`;
+    const p = runeData.runeSpecialFactor[effect.key] || {};
+    // TODO: 更多词条支持
+    if (key == 'cruelRune') {
+      stats.cruelRune += effect.data.extraValue * (p?.extraValue || 1.0) * typeFactor;
+      stats.cruelRatio += effect.data.extraMultiplier * (p?.extraMultiplier || 1.0) * typeFactor;
+    } else if (stats[key] !== undefined) {
+      if (effect.data.extraRate) {
+        stats[key] += effect.data.extraRate * (p?.extraRate || 1.0) * typeFactor;
+      } else if (effect.data.extraValue) {
+        stats[key] += effect.data.extraValue * (p?.extraValue || 1.0) * typeFactor;
+      } else if (effect.data.extraMultiplier) {
+        stats[key] += effect.data.extraMultiplier * (p?.extraMultiplier || 1.0) * typeFactor;
+      }
+    } else if (!stats.igonoreSpecials.includes(key)) {
+      stats.ignoreSpecials.push(key);
     }
   }
   const atkSpMap = {
@@ -2028,7 +2052,16 @@
       // 锋利：攻击时附加伤害
       tearInjury: 0,
       // 裂创：暴击时额外真实伤害
-      shadowBlade: 0 // 影刃：攻击时附加真实伤害
+      shadowBlade: 0,
+      // 影刃：攻击时附加真实伤害
+
+      cruel: 0,
+      // 残暴：暴击破防
+      cruelRune: 0,
+      cruelRatio: 0,
+      // 残暴：暴击破防乘子
+      cruelRatioRune: 0,
+      ignoreSpecials: []
     };
 
     // 装备基础属性
@@ -2069,16 +2102,7 @@
       });
       // 符石特殊属性
       for (let effect of rune.attrs?.special || []) {
-        const key = `${effect.key}Rune`;
-        const p = runeData.runeSpecialFactor[effect.key] || {};
-        if (stats[key] !== undefined) {
-          // TODO: 更多词条支持
-          if (effect.data.extraRate) {
-            stats[key] += effect.data.extraRate * (p?.extraRate || 1.0) * typeFactor;
-          } else if (effect.data.extraValue) {
-            stats[key] += effect.data.extraValue * (p?.extraValue || 1.0) * typeFactor;
-          }
-        }
+        runeSpecialParse(stats, effect, typeFactor);
       }
     }
 
@@ -2135,7 +2159,7 @@
         }
       });
     }
-    stats.dpsRaw = stats.actualAtksp * Math.min(stats.hr / 100, 1) * (stats.atk * Math.max(1 - stats.crt / 100, 0) + stats.crtd / 100 * stats.atk * Math.min(stats.crt / 100, 1) + stats.split * stats.chasing + stats.split * stats.heavyInjury * Math.min(stats.crt / 100, 1) + stats.split * stats.thump + stats.split * stats.shadowBlade + stats.split * stats.tearInjury) * (1 + stats.sharp / 100) * (1 + stats.ad / 100);
+    stats.dpsRaw = getDps(stats);
     return {
       weaponList,
       fightPet,
@@ -2143,6 +2167,20 @@
       relicList,
       stats
     };
+  }
+  function getDps(stats, defense = 0, evasion = 0, antiCrit = 0) {
+    const crt = Math.max(Math.min(stats.crt - antiCrit, 100) / 100, 0);
+    const defenseFactor =
+    // 非暴击
+    150 / (150 + Math.max(defense - stats.heat, 0)) * (1 - crt) +
+    // 暴击
+    150 / (150 + Math.max(defense * Math.max(1 - stats.cruelRatio / 100, 0) - stats.heat - stats.cruel, 0)) * crt;
+    return stats.actualAtksp * Math.max(Math.min((stats.hr - evasion) / 100, 1), 0) * (
+    // 需要整合防御计算部分
+    defenseFactor * (stats.atk * (1 - crt) + stats.crtd / 100 * stats.atk * crt + stats.split * stats.chasing + stats.split * stats.heavyInjury * crt + stats.split * stats.thump + stats.split * stats.tearInjury) +
+    // 真实伤害部分
+
+    stats.split * stats.shadowBlade) * (1 + stats.sharp / 100) * (1 + stats.ad / 100);
   }
   function updateCharacterInfoPanelDps() {
     const attrPanel = document.querySelector(".user-attrs");
@@ -2425,6 +2463,124 @@
       }
     };
   });
+
+  let autoStartFight = false;
+  setInterval(() => {
+    const roomDiv = document.querySelector('.in-room');
+    if (roomDiv) {
+      if (!roomDiv.querySelector('#autoStartFightCheckbox')) {
+        const label = document.createElement('label');
+        label.style.marginLeft = '10px';
+        const checkbox = document.createElement('input');
+        checkbox.type = 'checkbox';
+        checkbox.id = 'autoStartFightCheckbox';
+        checkbox.checked = autoStartFight;
+        checkbox.addEventListener('change', e => {
+          autoStartFight = e.target.checked;
+        });
+        label.appendChild(checkbox);
+        label.appendChild(document.createTextNode(' 自动开始战斗'));
+        roomDiv.appendChild(label);
+      }
+    }
+  }, 1000);
+
+  // Get party rooms
+  registSendHookHandler(/\["getTeamFightRoom",/, message => {
+    const obj = parseWSmessage(message);
+    obj[0].data;
+  });
+
+  // Join party room
+  registSendHookHandler(/\["joinRoom",/, message => {
+    const obj = parseWSmessage(message);
+    obj[0].data.monster;
+  });
+
+  // Cancel party fight
+  registSendHookHandler(/\["cancelTeamFight",/, message => {});
+  registMessageHandler(/\["nestPlayerJoin",/, obj => {
+    // const playerId = obj[1].id;
+    if (autoStartFight) {
+      let roomType = document.querySelector('.in-room')?.querySelector('.affix')?.querySelector('span')?.class || 'relic';
+      if (roomType === 'relic') {
+        roomType = 'relicRuin';
+      }
+      setInterval(() => {
+        startFight(roomType);
+      }, 1000);
+    }
+  });
+  function startFight(type) {
+    // type: crack, relicRuin
+    type = type.charAt(0).toUpperCase() + type.slice(1);
+    wsSend(`42${requestIdCounter}["start${type}Fight", {}]`);
+  }
+
+  let monsterCardShow = false;
+  setInterval(() => {
+    let monsterCard = null;
+    document.querySelectorAll('.monster-detail').forEach(el => {
+      if (el.style.display !== 'none' && el.parentElement.style.display !== 'none') {
+        monsterCard = el;
+      }
+    });
+    if (monsterCard) {
+      if (!monsterCardShow) {
+        monsterCardShow = true;
+        parseMonsterInfo(monsterCard);
+      }
+    } else {
+      monsterCardShow = false;
+    }
+  }, 1000);
+  function parseMonsterInfo(monsterCard) {
+    monsterCard.querySelector('h3').innerText;
+    const getP = label => {
+      return Array.from(monsterCard.querySelectorAll('p')).find(p => p.innerText.startsWith(label)).innerText.replace(label, '').trim();
+    };
+    const hpMax = parseFloat(getP('血量：'));
+    const defense = parseFloat(getP('防御：'));
+    const evasion = parseFloat(getP('闪避率：').replace('%', ''));
+    const antiCrit = parseFloat(getP('抗爆率：').replace('%', ''));
+    const specials = monsterCard.querySelectorAll('.special');
+    const specialList = [];
+    const ignoreSpecials = [];
+    for (let special of specials) {
+      const title = special.innerText;
+      const ability = monsterSpecialAbilities[title];
+      if (ability) {
+        specialList.push(ability);
+      } else {
+        ignoreSpecials.push(title);
+      }
+    }
+    const timeToKill = calculateMonsterTime(hpMax, defense, evasion, antiCrit);
+    let timeElem = monsterCard.querySelector('.monster-time-to-kill');
+    if (!timeElem) {
+      timeElem = document.createElement('div');
+      timeElem.className = 'monster-time-to-kill';
+      timeElem.style.marginTop = '8px';
+      timeElem.style.fontWeight = 'bold';
+    }
+    timeElem.innerHTML = `击杀所需时间: ${timeToKill.toFixed(2)} 秒`;
+    if (ignoreSpecials.length > 0) {
+      timeElem.innerHTML += `<br>(不考虑 ${ignoreSpecials.join('、')} 特效下)`;
+    }
+    if (characterInfo.parsed.stats.ignoreSpecials.length > 0) {
+      timeElem.innerHTML += `<br>（不考虑角色装备中的 ${characterInfo.parsed.stats.ignoreSpecials.join('、')} 特效下）`;
+    }
+    monsterCard.appendChild(timeElem);
+  }
+  function calculateMonsterTime(hpMax, defense, evasion, antiCrit, specials) {
+    const stats = characterInfo.parsed.stats;
+    const dps = getDps(stats, defense, evasion, antiCrit);
+    const timeToKill = hpMax / dps;
+    return timeToKill;
+  }
+  const monsterSpecialAbilities = {
+    // '反击': () => {},
+  };
 
   const localEquipmentSet = loadFromLocalStorage("equipmentsSetLocal", {});
   function saveEquipmentSet(name) {
