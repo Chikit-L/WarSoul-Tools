@@ -1,6 +1,6 @@
 import { logMessage, parseWSmessage } from "./utils.js";
 import { registMessageHandler, registOneTimeResponseHandler, registSendHookHandler, requestIdCounter, wsSend } from "./connection.js";
-import { atkSpMap, darkGoldData, equipmentEnhanceMap, equipmentsData, relicData, runeData, runeSpecialParse, starAttrMap, weaponSpecialParse } from "./equipments.js";
+import { atkSpMap, darkGoldData, equipmentEnhanceMap, equipmentsData, relicData, runeData, runeSpecialParse, segmentsParse, starAttrMap, weaponSpecialParse } from "./equipments.js";
 
 export const characterInfo = {};
 
@@ -123,15 +123,18 @@ function parseCharacterEquipment(character) {
     sharp: 0,           // 锋利：攻击时附加伤害
     tearInjury: 0,      // 裂创：暴击时额外真实伤害
     shadowBlade: 0,     // 影刃：攻击时附加真实伤害
+    burst: 0,           // 爆发：未暴击时额外期望
     
     cruel: 0,           // 残暴：暴击破防
     cruelRune: 0,
     cruelRatio: 0,      // 残暴：暴击破防乘子
     cruelRatioRune: 0,
 
+    segments: [],       // 按照血量分段的属性变化
     ignoreSpecials: [],
   };
 
+  const suits = [];
   // 装备基础属性
   Object.entries(weaponList).forEach(([weaponType, weapon]) => {
     for (let starType of (weapon.starAttrs || [])) {
@@ -145,6 +148,19 @@ function parseCharacterEquipment(character) {
     Object.entries(weapon.origin.attrs.basic).forEach(([attr, val]) => {
       stats[attr] += val;
     });
+    // 判断套装
+    if (weapon.origin.attrs.suit) {
+      const suitName = weapon.origin.attrs.suit.name;
+      const suitEquipIds = weapon.origin.attrs.suit.equipIdList;
+      const equippedIds = Object.values(weaponList).map(w => w.equipId);
+      const hasSuit = suitEquipIds.every(id => equippedIds.includes(id));
+      if (hasSuit && !suits.find(s => s.name === suitName)) {
+        suits.push({
+          name: suitName,
+          ...weapon.origin.attrs.suit.attrs
+        });
+      }
+    }
     // 附魔属性
     if (weapon.enchantAttr) {
       stats.voidDef += weapon.enchantAttr[0] * 10;
@@ -154,7 +170,6 @@ function parseCharacterEquipment(character) {
     for (let effect of (weapon?.darkGoldAttrs?.basic || [])) {
       stats[effect[0]] += (effect[1] + 5) * darkGoldData.darkGoldBasicFactor[effect[0]];
     }
-
     // 精造属性
     stats.ad += 0.4 * (weapon.refineAttr?.[0] || 0);
   });
@@ -206,6 +221,16 @@ function parseCharacterEquipment(character) {
     }
   });
 
+  // 套装效果
+  for (let suit of suits) {
+    Object.entries(suit.basic || {}).forEach(([key, value]) => {
+      stats[key] += value;
+    });
+    for (let effect of (suit.affix || [])) {
+      weaponSpecialParse(stats, effect);
+    }
+  }
+
   // 临时buff
   for (let buff of (characterInfo.temporaryBuff || [])) {
     Object.entries(buff.basic || {}).forEach(([attr, val]) => {
@@ -217,7 +242,25 @@ function parseCharacterEquipment(character) {
   stats.finalAtk = stats.atk * (1 + stats.break / 100)
   // 最终攻速计算
   stats.finalAtksp = (stats.atksp / 100 - 1) * (1 + stats.swiftness) + 1;
-  // 拟合公式
+
+  stats.dpsRaw = getDps(stats);
+
+  const segments = segmentsParse(stats);
+  segments.forEach(seg => {
+    seg.dps = getDps(seg);
+  });
+
+  return {
+    weaponList,
+    fightPet,
+    runeList,
+    relicList,
+    stats,
+    segments,
+  };
+}
+
+export function getActualAtkSp(stats) {
   if (characterInfo.isAdvance) {
     stats.actualAtksp = stats.finalAtksp;
   } else {
@@ -227,20 +270,17 @@ function parseCharacterEquipment(character) {
       }
     });
   }
-
-  stats.dpsRaw = getDps(stats);
-
-  return {
-    weaponList,
-    fightPet,
-    runeList,
-    relicList,
-    stats,
-  };
 }
 
 export function getDps(stats, defense = 0, evasion = 0, antiCrit = 0) {
-  const crt = Math.max(Math.min(stats.crt - antiCrit, 100) / 100, 0);
+  // 最终攻速计算
+  getActualAtkSp(stats);
+
+  // 暴击率
+  let crt = Math.max(Math.min(stats.crt - antiCrit, 100) / 100, 0);
+  crt = crt + (1 - crt) * (stats.burst / 100);
+
+  // 防御计算系数
   const defenseFactor = (
     // 非暴击
     150 / (150 + Math.max(defense - stats.heat, 0)) * (1 - crt) +
@@ -248,7 +288,9 @@ export function getDps(stats, defense = 0, evasion = 0, antiCrit = 0) {
     150 / (150 + Math.max(defense * Math.max(1 - stats.cruelRatio / 100, 0) - stats.heat - stats.cruel, 0)) * crt
   )
 
-  return stats.actualAtksp * Math.max(Math.min((stats.hr - evasion) / 100, 1), 0) * (
+  const hr = Math.max(Math.min((stats.hr - evasion) / 100, 1), 0)
+
+  return stats.actualAtksp * hr * (
     // 需要整合防御计算部分
     defenseFactor * (
       stats.atk * (1 - crt) +
@@ -257,12 +299,25 @@ export function getDps(stats, defense = 0, evasion = 0, antiCrit = 0) {
       stats.split * stats.heavyInjury * crt +
       stats.split * stats.thump +
       stats.split * stats.tearInjury
-    ) + 
+    ) * (
+      (1 + stats.sharp / 100) *                    // 锋利
+      (1 + (stats.harvestRatio || 0) / 100) *      // 收割
+      (1 + (stats.impactRatio || 0) / 100) *       // 冲击
+      (1 + (stats.assault || 0) / 100)             // 冲锋
+    ) +
+    defenseFactor * (
+      (stats.harvest || 0) +   // 收割固定伤害
+      (stats.impact || 0)      // 冲击固定伤害
+    ) +
     // 真实伤害部分
     (
       stats.split * stats.shadowBlade
     )
-  ) * (1 + stats.sharp / 100) * (1 + stats.ad / 100)
+  ) * (1 + stats.ad / 100)
+  // 怪物麻痹免疫
+  * (1 - (stats.paralysis || 0) * (1 - crt) / 100)
+  // 未命中吸血效果
+  - ((stats.monsterLeech || 0) * stats.actualAtksp * (1 - hr))
 }
 
 function updateCharacterInfoPanelDps() {
@@ -292,6 +347,7 @@ registSendHookHandler(/\["useEquipRoutine",/, (message) => {
 
   characterInfo.parsed = parseCharacterEquipment(characterInfo);
   updateCharacterInfoPanelDps();
+  logMessage(characterInfo.parsed);
 
   return;
 });

@@ -2,7 +2,7 @@
 // ==UserScript==
 // @name           WarSoul-Tools
 // @namespace      WarSoul-Tools
-// @version        0.4.0
+// @version        0.5.0
 // @author         BKN46
 // @description    WarSoul实用工具
 // @icon           https://www.milkywayidle.com/favicon.svg
@@ -526,18 +526,18 @@
   var tryToString = tryToString$1;
 
   // `Assert: IsCallable(argument) is true`
-  var aCallable$7 = function (argument) {
+  var aCallable$8 = function (argument) {
     if (isCallable$9(argument)) return argument;
     throw TypeError(tryToString(argument) + ' is not a function');
   };
 
-  var aCallable$6 = aCallable$7;
+  var aCallable$7 = aCallable$8;
 
   // `GetMethod` abstract operation
   // https://tc39.es/ecma262/#sec-getmethod
   var getMethod$4 = function (V, P) {
     var func = V[P];
-    return func == null ? undefined : aCallable$6(func);
+    return func == null ? undefined : aCallable$7(func);
   };
 
   var isCallable$8 = isCallable$d;
@@ -714,14 +714,14 @@
   var isObject$1 = isObject$5;
 
   // `Assert: Type(argument) is Object`
-  var anObject$d = function (argument) {
+  var anObject$e = function (argument) {
     if (isObject$1(argument)) return argument;
     throw TypeError(String(argument) + ' is not an object');
   };
 
   var DESCRIPTORS$3 = descriptors;
   var IE8_DOM_DEFINE = ie8DomDefine;
-  var anObject$c = anObject$d;
+  var anObject$d = anObject$e;
   var toPropertyKey = toPropertyKey$2;
 
   // eslint-disable-next-line es/no-object-defineproperty -- safe
@@ -730,9 +730,9 @@
   // `Object.defineProperty` method
   // https://tc39.es/ecma262/#sec-object.defineproperty
   objectDefineProperty.f = DESCRIPTORS$3 ? $defineProperty : function defineProperty(O, P, Attributes) {
-    anObject$c(O);
+    anObject$d(O);
     P = toPropertyKey(P);
-    anObject$c(Attributes);
+    anObject$d(Attributes);
     if (IE8_DOM_DEFINE) try {
       return $defineProperty(O, P, Attributes);
     } catch (error) { /* empty */ }
@@ -1046,11 +1046,11 @@
   var getBuiltIn$1 = getBuiltIn$4;
   var getOwnPropertyNamesModule = objectGetOwnPropertyNames;
   var getOwnPropertySymbolsModule = objectGetOwnPropertySymbols;
-  var anObject$b = anObject$d;
+  var anObject$c = anObject$e;
 
   // all object keys, includes non-enumerable and symbols
   var ownKeys$1 = getBuiltIn$1('Reflect', 'ownKeys') || function ownKeys(it) {
-    var keys = getOwnPropertyNamesModule.f(anObject$b(it));
+    var keys = getOwnPropertyNamesModule.f(anObject$c(it));
     var getOwnPropertySymbols = getOwnPropertySymbolsModule.f;
     return getOwnPropertySymbols ? keys.concat(getOwnPropertySymbols(it)) : keys;
   };
@@ -1166,14 +1166,14 @@
 
   var DESCRIPTORS = descriptors;
   var definePropertyModule = objectDefineProperty;
-  var anObject$a = anObject$d;
+  var anObject$b = anObject$e;
   var objectKeys = objectKeys$1;
 
   // `Object.defineProperties` method
   // https://tc39.es/ecma262/#sec-object.defineproperties
   // eslint-disable-next-line es/no-object-defineproperties -- safe
   var objectDefineProperties = DESCRIPTORS ? Object.defineProperties : function defineProperties(O, Properties) {
-    anObject$a(O);
+    anObject$b(O);
     var keys = objectKeys(Properties);
     var length = keys.length;
     var index = 0;
@@ -1188,7 +1188,7 @@
 
   /* global ActiveXObject -- old IE, WSH */
 
-  var anObject$9 = anObject$d;
+  var anObject$a = anObject$e;
   var defineProperties = objectDefineProperties;
   var enumBugKeys = enumBugKeys$3;
   var hiddenKeys = hiddenKeys$4;
@@ -1261,7 +1261,7 @@
   var objectCreate = Object.create || function create(O, Properties) {
     var result;
     if (O !== null) {
-      EmptyConstructor[PROTOTYPE] = anObject$9(O);
+      EmptyConstructor[PROTOTYPE] = anObject$a(O);
       result = new EmptyConstructor();
       EmptyConstructor[PROTOTYPE] = null;
       // add "__proto__" for Object.getPrototypeOf polyfill
@@ -1346,7 +1346,7 @@
   };
 
   // https://github.com/tc39/proposal-iterator-helpers
-  var $$4 = _export;
+  var $$5 = _export;
   var global$1 = global$c;
   var anInstance = anInstance$1;
   var isCallable$1 = isCallable$d;
@@ -1380,143 +1380,16 @@
 
   IteratorConstructor.prototype = IteratorPrototype$1;
 
-  $$4({ global: true, forced: FORCED }, {
+  $$5({ global: true, forced: FORCED }, {
     Iterator: IteratorConstructor
-  });
-
-  var redefine = redefine$3.exports;
-
-  var redefineAll$1 = function (target, src, options) {
-    for (var key in src) redefine(target, key, src[key], options);
-    return target;
-  };
-
-  var aCallable$5 = aCallable$7;
-  var anObject$8 = anObject$d;
-  var create = objectCreate;
-  var createNonEnumerableProperty = createNonEnumerableProperty$5;
-  var redefineAll = redefineAll$1;
-  var wellKnownSymbol$4 = wellKnownSymbol$8;
-  var InternalStateModule = internalState;
-  var getMethod$2 = getMethod$4;
-  var IteratorPrototype = iteratorsCore.IteratorPrototype;
-
-  var setInternalState = InternalStateModule.set;
-  var getInternalState = InternalStateModule.get;
-
-  var TO_STRING_TAG$2 = wellKnownSymbol$4('toStringTag');
-
-  var iteratorCreateProxy = function (nextHandler, IS_ITERATOR) {
-    var IteratorProxy = function Iterator(state) {
-      state.next = aCallable$5(state.iterator.next);
-      state.done = false;
-      state.ignoreArg = !IS_ITERATOR;
-      setInternalState(this, state);
-    };
-
-    IteratorProxy.prototype = redefineAll(create(IteratorPrototype), {
-      next: function next(arg) {
-        var state = getInternalState(this);
-        var args = arguments.length ? [state.ignoreArg ? undefined : arg] : IS_ITERATOR ? [] : [undefined];
-        state.ignoreArg = false;
-        var result = state.done ? undefined : nextHandler.call(state, args);
-        return { done: state.done, value: result };
-      },
-      'return': function (value) {
-        var state = getInternalState(this);
-        var iterator = state.iterator;
-        state.done = true;
-        var $$return = getMethod$2(iterator, 'return');
-        return { done: true, value: $$return ? anObject$8($$return.call(iterator, value)).value : value };
-      },
-      'throw': function (value) {
-        var state = getInternalState(this);
-        var iterator = state.iterator;
-        state.done = true;
-        var $$throw = getMethod$2(iterator, 'throw');
-        if ($$throw) return $$throw.call(iterator, value);
-        throw value;
-      }
-    });
-
-    if (!IS_ITERATOR) {
-      createNonEnumerableProperty(IteratorProxy.prototype, TO_STRING_TAG$2, 'Generator');
-    }
-
-    return IteratorProxy;
-  };
-
-  var anObject$7 = anObject$d;
-  var getMethod$1 = getMethod$4;
-
-  var iteratorClose$2 = function (iterator, kind, value) {
-    var innerResult, innerError;
-    anObject$7(iterator);
-    try {
-      innerResult = getMethod$1(iterator, 'return');
-      if (!innerResult) {
-        if (kind === 'throw') throw value;
-        return value;
-      }
-      innerResult = innerResult.call(iterator);
-    } catch (error) {
-      innerError = true;
-      innerResult = error;
-    }
-    if (kind === 'throw') throw value;
-    if (innerError) throw innerResult;
-    anObject$7(innerResult);
-    return value;
-  };
-
-  var anObject$6 = anObject$d;
-  var iteratorClose$1 = iteratorClose$2;
-
-  // call something on iterator step with safe closing on error
-  var callWithSafeIterationClosing$2 = function (iterator, fn, value, ENTRIES) {
-    try {
-      return ENTRIES ? fn(anObject$6(value)[0], value[1]) : fn(value);
-    } catch (error) {
-      iteratorClose$1(iterator, 'throw', error);
-    }
-  };
-
-  // https://github.com/tc39/proposal-iterator-helpers
-  var $$3 = _export;
-  var aCallable$4 = aCallable$7;
-  var anObject$5 = anObject$d;
-  var createIteratorProxy$1 = iteratorCreateProxy;
-  var callWithSafeIterationClosing$1 = callWithSafeIterationClosing$2;
-
-  var IteratorProxy$1 = createIteratorProxy$1(function (args) {
-    var iterator = this.iterator;
-    var filterer = this.filterer;
-    var next = this.next;
-    var result, done, value;
-    while (true) {
-      result = anObject$5(next.apply(iterator, args));
-      done = this.done = !!result.done;
-      if (done) return;
-      value = result.value;
-      if (callWithSafeIterationClosing$1(iterator, filterer, value)) return value;
-    }
-  });
-
-  $$3({ target: 'Iterator', proto: true, real: true }, {
-    filter: function filter(filterer) {
-      return new IteratorProxy$1({
-        iterator: anObject$5(this),
-        filterer: aCallable$4(filterer)
-      });
-    }
   });
 
   var iterators = {};
 
-  var wellKnownSymbol$3 = wellKnownSymbol$8;
+  var wellKnownSymbol$4 = wellKnownSymbol$8;
   var Iterators$1 = iterators;
 
-  var ITERATOR$1 = wellKnownSymbol$3('iterator');
+  var ITERATOR$1 = wellKnownSymbol$4('iterator');
   var ArrayPrototype = Array.prototype;
 
   // check on default Array iterator
@@ -1524,11 +1397,11 @@
     return it !== undefined && (Iterators$1.Array === it || ArrayPrototype[ITERATOR$1] === it);
   };
 
-  var aCallable$3 = aCallable$7;
+  var aCallable$6 = aCallable$8;
 
   // optional / simple context binding
   var functionBindContext = function (fn, that, length) {
-    aCallable$3(fn);
+    aCallable$6(fn);
     if (that === undefined) return fn;
     switch (length) {
       case 0: return function () {
@@ -1549,21 +1422,21 @@
     };
   };
 
-  var wellKnownSymbol$2 = wellKnownSymbol$8;
+  var wellKnownSymbol$3 = wellKnownSymbol$8;
 
-  var TO_STRING_TAG$1 = wellKnownSymbol$2('toStringTag');
+  var TO_STRING_TAG$2 = wellKnownSymbol$3('toStringTag');
   var test = {};
 
-  test[TO_STRING_TAG$1] = 'z';
+  test[TO_STRING_TAG$2] = 'z';
 
   var toStringTagSupport = String(test) === '[object z]';
 
   var TO_STRING_TAG_SUPPORT = toStringTagSupport;
   var isCallable = isCallable$d;
   var classofRaw = classofRaw$1;
-  var wellKnownSymbol$1 = wellKnownSymbol$8;
+  var wellKnownSymbol$2 = wellKnownSymbol$8;
 
-  var TO_STRING_TAG = wellKnownSymbol$1('toStringTag');
+  var TO_STRING_TAG$1 = wellKnownSymbol$2('toStringTag');
   // ES3 wrong here
   var CORRECT_ARGUMENTS = classofRaw(function () { return arguments; }()) == 'Arguments';
 
@@ -1579,7 +1452,7 @@
     var O, tag, result;
     return it === undefined ? 'Undefined' : it === null ? 'Null'
       // @@toStringTag case
-      : typeof (tag = tryGet(O = Object(it), TO_STRING_TAG)) == 'string' ? tag
+      : typeof (tag = tryGet(O = Object(it), TO_STRING_TAG$1)) == 'string' ? tag
       // builtinTag case
       : CORRECT_ARGUMENTS ? classofRaw(O)
       // ES3 arguments fallback
@@ -1587,42 +1460,65 @@
   };
 
   var classof = classof$1;
-  var getMethod = getMethod$4;
+  var getMethod$2 = getMethod$4;
   var Iterators = iterators;
-  var wellKnownSymbol = wellKnownSymbol$8;
+  var wellKnownSymbol$1 = wellKnownSymbol$8;
 
-  var ITERATOR = wellKnownSymbol('iterator');
+  var ITERATOR = wellKnownSymbol$1('iterator');
 
   var getIteratorMethod$2 = function (it) {
-    if (it != undefined) return getMethod(it, ITERATOR)
-      || getMethod(it, '@@iterator')
+    if (it != undefined) return getMethod$2(it, ITERATOR)
+      || getMethod$2(it, '@@iterator')
       || Iterators[classof(it)];
   };
 
-  var aCallable$2 = aCallable$7;
-  var anObject$4 = anObject$d;
+  var aCallable$5 = aCallable$8;
+  var anObject$9 = anObject$e;
   var getIteratorMethod$1 = getIteratorMethod$2;
 
   var getIterator$1 = function (argument, usingIterator) {
     var iteratorMethod = arguments.length < 2 ? getIteratorMethod$1(argument) : usingIterator;
-    if (aCallable$2(iteratorMethod)) return anObject$4(iteratorMethod.call(argument));
+    if (aCallable$5(iteratorMethod)) return anObject$9(iteratorMethod.call(argument));
     throw TypeError(String(argument) + ' is not iterable');
   };
 
-  var anObject$3 = anObject$d;
+  var anObject$8 = anObject$e;
+  var getMethod$1 = getMethod$4;
+
+  var iteratorClose$2 = function (iterator, kind, value) {
+    var innerResult, innerError;
+    anObject$8(iterator);
+    try {
+      innerResult = getMethod$1(iterator, 'return');
+      if (!innerResult) {
+        if (kind === 'throw') throw value;
+        return value;
+      }
+      innerResult = innerResult.call(iterator);
+    } catch (error) {
+      innerError = true;
+      innerResult = error;
+    }
+    if (kind === 'throw') throw value;
+    if (innerError) throw innerResult;
+    anObject$8(innerResult);
+    return value;
+  };
+
+  var anObject$7 = anObject$e;
   var isArrayIteratorMethod = isArrayIteratorMethod$1;
   var lengthOfArrayLike = lengthOfArrayLike$2;
   var bind = functionBindContext;
   var getIterator = getIterator$1;
   var getIteratorMethod = getIteratorMethod$2;
-  var iteratorClose = iteratorClose$2;
+  var iteratorClose$1 = iteratorClose$2;
 
   var Result = function (stopped, result) {
     this.stopped = stopped;
     this.result = result;
   };
 
-  var iterate$2 = function (iterable, unboundFunction, options) {
+  var iterate$3 = function (iterable, unboundFunction, options) {
     var that = options && options.that;
     var AS_ENTRIES = !!(options && options.AS_ENTRIES);
     var IS_ITERATOR = !!(options && options.IS_ITERATOR);
@@ -1631,13 +1527,13 @@
     var iterator, iterFn, index, length, result, next, step;
 
     var stop = function (condition) {
-      if (iterator) iteratorClose(iterator, 'normal', condition);
+      if (iterator) iteratorClose$1(iterator, 'normal', condition);
       return new Result(true, condition);
     };
 
     var callFn = function (value) {
       if (AS_ENTRIES) {
-        anObject$3(value);
+        anObject$7(value);
         return INTERRUPTED ? fn(value[0], value[1], stop) : fn(value[0], value[1]);
       } return INTERRUPTED ? fn(value, stop) : fn(value);
     };
@@ -1662,17 +1558,137 @@
       try {
         result = callFn(step.value);
       } catch (error) {
-        iteratorClose(iterator, 'throw', error);
+        iteratorClose$1(iterator, 'throw', error);
       }
       if (typeof result == 'object' && result && result instanceof Result) return result;
     } return new Result(false);
   };
 
   // https://github.com/tc39/proposal-iterator-helpers
+  var $$4 = _export;
+  var iterate$2 = iterate$3;
+  var aCallable$4 = aCallable$8;
+  var anObject$6 = anObject$e;
+
+  $$4({ target: 'Iterator', proto: true, real: true }, {
+    every: function every(fn) {
+      anObject$6(this);
+      aCallable$4(fn);
+      return !iterate$2(this, function (value, stop) {
+        if (!fn(value)) return stop();
+      }, { IS_ITERATOR: true, INTERRUPTED: true }).stopped;
+    }
+  });
+
+  var redefine = redefine$3.exports;
+
+  var redefineAll$1 = function (target, src, options) {
+    for (var key in src) redefine(target, key, src[key], options);
+    return target;
+  };
+
+  var aCallable$3 = aCallable$8;
+  var anObject$5 = anObject$e;
+  var create = objectCreate;
+  var createNonEnumerableProperty = createNonEnumerableProperty$5;
+  var redefineAll = redefineAll$1;
+  var wellKnownSymbol = wellKnownSymbol$8;
+  var InternalStateModule = internalState;
+  var getMethod = getMethod$4;
+  var IteratorPrototype = iteratorsCore.IteratorPrototype;
+
+  var setInternalState = InternalStateModule.set;
+  var getInternalState = InternalStateModule.get;
+
+  var TO_STRING_TAG = wellKnownSymbol('toStringTag');
+
+  var iteratorCreateProxy = function (nextHandler, IS_ITERATOR) {
+    var IteratorProxy = function Iterator(state) {
+      state.next = aCallable$3(state.iterator.next);
+      state.done = false;
+      state.ignoreArg = !IS_ITERATOR;
+      setInternalState(this, state);
+    };
+
+    IteratorProxy.prototype = redefineAll(create(IteratorPrototype), {
+      next: function next(arg) {
+        var state = getInternalState(this);
+        var args = arguments.length ? [state.ignoreArg ? undefined : arg] : IS_ITERATOR ? [] : [undefined];
+        state.ignoreArg = false;
+        var result = state.done ? undefined : nextHandler.call(state, args);
+        return { done: state.done, value: result };
+      },
+      'return': function (value) {
+        var state = getInternalState(this);
+        var iterator = state.iterator;
+        state.done = true;
+        var $$return = getMethod(iterator, 'return');
+        return { done: true, value: $$return ? anObject$5($$return.call(iterator, value)).value : value };
+      },
+      'throw': function (value) {
+        var state = getInternalState(this);
+        var iterator = state.iterator;
+        state.done = true;
+        var $$throw = getMethod(iterator, 'throw');
+        if ($$throw) return $$throw.call(iterator, value);
+        throw value;
+      }
+    });
+
+    if (!IS_ITERATOR) {
+      createNonEnumerableProperty(IteratorProxy.prototype, TO_STRING_TAG, 'Generator');
+    }
+
+    return IteratorProxy;
+  };
+
+  var anObject$4 = anObject$e;
+  var iteratorClose = iteratorClose$2;
+
+  // call something on iterator step with safe closing on error
+  var callWithSafeIterationClosing$2 = function (iterator, fn, value, ENTRIES) {
+    try {
+      return ENTRIES ? fn(anObject$4(value)[0], value[1]) : fn(value);
+    } catch (error) {
+      iteratorClose(iterator, 'throw', error);
+    }
+  };
+
+  // https://github.com/tc39/proposal-iterator-helpers
+  var $$3 = _export;
+  var aCallable$2 = aCallable$8;
+  var anObject$3 = anObject$e;
+  var createIteratorProxy$1 = iteratorCreateProxy;
+  var callWithSafeIterationClosing$1 = callWithSafeIterationClosing$2;
+
+  var IteratorProxy$1 = createIteratorProxy$1(function (args) {
+    var iterator = this.iterator;
+    var filterer = this.filterer;
+    var next = this.next;
+    var result, done, value;
+    while (true) {
+      result = anObject$3(next.apply(iterator, args));
+      done = this.done = !!result.done;
+      if (done) return;
+      value = result.value;
+      if (callWithSafeIterationClosing$1(iterator, filterer, value)) return value;
+    }
+  });
+
+  $$3({ target: 'Iterator', proto: true, real: true }, {
+    filter: function filter(filterer) {
+      return new IteratorProxy$1({
+        iterator: anObject$3(this),
+        filterer: aCallable$2(filterer)
+      });
+    }
+  });
+
+  // https://github.com/tc39/proposal-iterator-helpers
   var $$2 = _export;
-  var iterate$1 = iterate$2;
-  var aCallable$1 = aCallable$7;
-  var anObject$2 = anObject$d;
+  var iterate$1 = iterate$3;
+  var aCallable$1 = aCallable$8;
+  var anObject$2 = anObject$e;
 
   $$2({ target: 'Iterator', proto: true, real: true }, {
     find: function find(fn) {
@@ -1686,8 +1702,8 @@
 
   // https://github.com/tc39/proposal-iterator-helpers
   var $$1 = _export;
-  var iterate = iterate$2;
-  var anObject$1 = anObject$d;
+  var iterate = iterate$3;
+  var anObject$1 = anObject$e;
 
   $$1({ target: 'Iterator', proto: true, real: true }, {
     forEach: function forEach(fn) {
@@ -1697,8 +1713,8 @@
 
   // https://github.com/tc39/proposal-iterator-helpers
   var $ = _export;
-  var aCallable = aCallable$7;
-  var anObject = anObject$d;
+  var aCallable = aCallable$8;
+  var anObject = anObject$e;
   var createIteratorProxy = iteratorCreateProxy;
   var callWithSafeIterationClosing = callWithSafeIterationClosing$2;
 
@@ -1717,6 +1733,128 @@
       });
     }
   });
+
+  const effects = {
+    // 分裂
+    'split': (stats, effectData) => {
+      const splitRate = effectData.rate * (1 + stats.splitRune) / 100;
+      stats.split = stats.split + splitRate * effectData.value;
+    },
+    // 重击
+    'thump': (stats, effectData) => {
+      stats.thump = stats.thump + effectData.rate / 100 * effectData.value;
+    },
+    // 残忍
+    'cruel': (stats, effectData) => {
+      stats.cruel = stats.cruel + (effectData?.value || 0) + stats.cruelRune;
+      stats.cruelRatio = stats.cruelRatio + (effectData?.multiplier || 0) + stats.cruelRatioRune;
+    },
+    // 轻灵
+    'swiftness': (stats, effectData) => {
+      stats.swiftness += effectData.value - 1 + stats.swiftnessRune;
+    },
+    // 爆发
+    'burst': (stats, effectData) => {
+      stats.burst += effectData.rate;
+    }
+  };
+  const segmentEffects = {
+    // 收割
+    'harvest': segment => ({
+      hpPercentType: 'below',
+      harvestRatio: (segment.multiplier || 0) * (1 + (segment.extraMultiplier || 0)),
+      harvest: (segment.value || 0) * (1 + (segment.extraMultiplier || 0))
+    }),
+    // 冲击
+    'impact': segment => ({
+      hpPercentType: 'above',
+      impactRatio: (segment.multiplier || 0) * (1 + (segment.extraMultiplier || 0)),
+      impact: (segment.value || 0) * (1 + (segment.extraMultiplier || 0))
+    }),
+    // 冲锋
+    'assault': segment => ({
+      hpPercentType: 'above',
+      assault: (segment.multiplier || 0) * (1 + (segment.extraMultiplier || 0))
+    })
+  };
+  const runeEffects = {
+    // 残忍
+    'cruel': (stats, effectData, runeFactor, typeFactor) => {
+      stats.cruelRune += (effectData?.extraValue || 0) * (runeFactor?.extraValue || 1.0) * typeFactor;
+      stats.cruelRatioRune += (effectData?.extraMultiplier || 0) * (runeFactor?.extraMultiplier || 1.0) * typeFactor;
+    }
+  };
+  const monsterEffects = {
+    '求生': (stats, monsterHpSegment, monsterInfo) => {
+      monsterHpSegment.push({
+        hpPercent: 10,
+        hpPercentType: 'below',
+        monsterEvasion: 60
+      });
+    },
+    '冰霜巫术': (stats, monsterHpSegment, monsterInfo) => {
+      monsterHpSegment.push({
+        hpPercent: 50,
+        hpPercentType: 'below',
+        monsterLeech: monsterInfo.hpMax * 0.02
+      });
+    },
+    '冰霜护盾': (stats, monsterHpSegment, monsterInfo) => {
+      monsterHpSegment.push({
+        hpPercent: 50,
+        hpPercentType: 'below',
+        monsterEvasion: 55
+      });
+    },
+    '惊骇': (stats, monsterHpSegment, monsterInfo) => {
+      monsterHpSegment.push({
+        hpPercent: 10,
+        hpPercentType: 'below',
+        specialFunc: stats => {
+          stats.hr -= 50;
+        }
+      });
+    },
+    '吸血': (stats, monsterHpSegment, monsterInfo) => {
+      if (monsterInfo.name.includes('吸血鬼王')) {
+        stats.monsterLeech = monsterInfo.hpMax * 0.02;
+      } else if (monsterInfo.name.includes('吸血鬼')) {
+        stats.monsterLeech = monsterInfo.hpMax * 0.01;
+      } else {
+        stats.monsterLeech = monsterInfo.hpMax * 0.02;
+      }
+    },
+    // TODO: 多段攻击免疫效果优化
+    '反击': (stats, monsterHpSegment, monsterInfo) => {
+      stats.split *= 0.7;
+    },
+    '恐吓': (stats, monsterHpSegment, monsterInfo) => {
+      stats.heat *= 0.5;
+    },
+    '磐石': (stats, monsterHpSegment, monsterInfo) => {
+      if (monsterInfo.name.includes('金人')) {
+        stats.monsterDefense = 50;
+      } else {
+        stats.monsterDefense = 15;
+      }
+    },
+    '坚韧': (stats, monsterHpSegment, monsterInfo) => {
+      monsterHpSegment.push({
+        hpPercent: 20,
+        hpPercentType: 'below',
+        monsterDefense: 200
+      });
+    },
+    '虚弱': (stats, monsterHpSegment, monsterInfo) => {
+      stats.atk *= 0.5;
+    },
+    '麻痹': (stats, monsterHpSegment, monsterInfo) => {
+      stats.paralysis = 60;
+    },
+    '迟缓': (stats, monsterHpSegment, monsterInfo) => {
+      stats.finalAtksp -= 0.3;
+    }
+  };
 
   const equipmentsData = loadFromLocalStorage("equipmentsData", {});
   registHTTPRequestHandler(/awakening-of-war-soul-ol\/socket\.io/, /.*/, /^430.+/, res => {
@@ -1801,17 +1939,8 @@
     }
     if (stats[effect.key] !== undefined) {
       const runeKey = `${effect.key}Rune`;
-      // TODO:更多词条支持
-      if (effect.key === 'split') {
-        const splitRate = effectData.rate * (1 + stats.splitRune) / 100;
-        stats.split = stats.split + splitRate * effectData.value;
-      } else if (effect.key === 'thump') {
-        stats.thump = stats.thump + effectData.rate / 100 * effectData.value;
-      } else if (effect.key === 'cruel') {
-        stats.cruel = stats.cruel + (effectData?.value || 0);
-        stats.cruelRatio = stats.cruelRatio + (effectData?.multiplier || 0);
-      } else if (effect.key === 'swiftness') {
-        stats.swiftness += effectData.value - 1 + stats.swiftnessRune;
+      if (Object.keys(effects).includes(effect.key)) {
+        effects[effect.key](stats, effectData);
       } else if (runeKey in stats) {
         stats[effect.key] += effectData.value + stats[runeKey];
       } else if (effectData.value) {
@@ -1819,17 +1948,19 @@
       } else if (effectData.multiplier) {
         stats[effect.key] += effectData.multiplier;
       }
-    } else if (!stats.igonoreSpecials.includes(effect.key)) {
+    } else if (Object.keys(segmentEffects).includes(effect.key)) {
+      addStatsSegment(stats, effect.key, effectData);
+    } else if (!stats.ignoreSpecials.includes(effect.key)) {
       stats.ignoreSpecials.push(effect.key);
     }
   }
   function runeSpecialParse(stats, effect, typeFactor = 1.0) {
     const key = `${effect.key}Rune`;
     const p = runeData.runeSpecialFactor[effect.key] || {};
-    // TODO: 更多词条支持
-    if (key == 'cruelRune') {
-      stats.cruelRune += effect.data.extraValue * (p?.extraValue || 1.0) * typeFactor;
-      stats.cruelRatio += effect.data.extraMultiplier * (p?.extraMultiplier || 1.0) * typeFactor;
+    if (Object.keys(runeEffects).includes(effect.key)) {
+      runeEffects[effect.key](stats, effect.data, p, typeFactor);
+    } else if (p.extraHpPercent) {
+      addRuneSegment(stats, effect.key, p, typeFactor);
     } else if (stats[key] !== undefined) {
       if (effect.data.extraRate) {
         stats[key] += effect.data.extraRate * (p?.extraRate || 1.0) * typeFactor;
@@ -1838,9 +1969,52 @@
       } else if (effect.data.extraMultiplier) {
         stats[key] += effect.data.extraMultiplier * (p?.extraMultiplier || 1.0) * typeFactor;
       }
-    } else if (!stats.igonoreSpecials.includes(key)) {
+    } else if (!stats.ignoreSpecials.includes(key)) {
       stats.ignoreSpecials.push(key);
     }
+  }
+  function addStatsSegment(stats, type, effect) {
+    stats.segments.push({
+      type,
+      ...effect
+    });
+  }
+  function addRuneSegment(stats, name, effect, typeFactor) {
+    stats.segments.forEach(segment => {
+      if (segment.type === name) {
+        Object.keys(effect).forEach(key => {
+          if (key === 'extraHpPercent') {
+            segment.extraHpPercent = (segment.extraHpPercent || 0) + effect[key] * typeFactor;
+          } else {
+            segment[key] = (segment[key] || 0) + effect[key] * typeFactor;
+          }
+        });
+      }
+    });
+  }
+  function parsePlayerSegments(stats) {
+    const hpSegments = [{
+      hpPercent: 0,
+      hpPercentType: 'above',
+      ...stats
+    }]; // 以血量百分比为key，属性对象为value
+    stats.segments.forEach(segment => {
+      const actualHpPercent = 100 - (1 + (segment.extraHpPercent || 0)) * (100 - segment.hpPercent);
+      if (Object.keys(segmentEffects).includes(segment.type)) {
+        hpSegments.push({
+          hpPercent: actualHpPercent,
+          ...segmentEffects[segment.type](segment)
+        });
+      } else {
+        stats.ignoreSpecials.push(segment.type);
+      }
+    });
+    return hpSegments;
+  }
+  function segmentsParse(stats, monsterSegments = []) {
+    const hpSegments = parsePlayerSegments(stats);
+    hpSegments.push(...monsterSegments);
+    return mergeHpSegments(hpSegments);
   }
   const atkSpMap = {
     1.001: 195,
@@ -1852,6 +2026,64 @@
     2.504: 582,
     3.340: 872
   };
+  function mergeHpSegments(hpSegments) {
+    const breakpoints = new Set([0]);
+    hpSegments.forEach(seg => {
+      breakpoints.add(seg.hpPercent);
+    });
+
+    // 按血量从低到高排序断点
+    const sortedBreakpoints = Array.from(breakpoints).sort((a, b) => a - b);
+
+    // 为每个断点计算生效的属性
+    const merged = {};
+    sortedBreakpoints.forEach(bp => {
+      merged[bp] = {
+        hpPercent: bp,
+        hpPercentType: 'above'
+      };
+
+      // 遍历所有分段，判断在当前血量断点下哪些分段生效
+      hpSegments.forEach(seg => {
+        let shouldInclude = false;
+        if (seg.hpPercentType === 'below') {
+          // below X 表示血量 < X 时生效，转换为 above 视角：
+          // 只在血量断点 < X 时该分段才生效
+          shouldInclude = bp < seg.hpPercent;
+        } else {
+          // above X 表示血量 >= X 时生效
+          shouldInclude = bp >= seg.hpPercent;
+        }
+        if (shouldInclude) {
+          // 合并属性，排除元数据字段
+          Object.keys(seg).forEach(k => {
+            if (k !== 'hpPercent' && k !== 'hpPercentType' && k !== 'segments' && k !== 'ignoreSpecials' && k !== 'type' && k !== 'extraHpPercent') {
+              if (typeof seg[k] === 'number') {
+                merged[bp][k] = (merged[bp][k] || 0) + seg[k];
+              } else if (k === 'specialFunc') {
+                merged[bp].specialFunc = (merged[bp].specialFunc || []).concat([seg[k]]);
+              } else if (merged[bp][k] === undefined) {
+                merged[bp][k] = seg[k];
+              }
+            }
+          });
+        }
+      });
+    });
+    return Object.values(merged).sort((a, b) => b.hpPercent - a.hpPercent);
+  }
+  function equipEquipment(equipmentId) {
+    wsSend(`42${requestIdCounter}["equipAcion",{"id":"${equipmentId}","action":"wear"}]`);
+  }
+  function equipRune(runeId, slot) {
+    wsSend(`42${requestIdCounter}["runeAction",{"id":"${runeId}","action":"wear","index":${slot}}]`);
+  }
+  function unequipRune(runeId) {
+    wsSend(`42${requestIdCounter}["runeAction",{"id":"${runeId}","action":"remove"}]`);
+  }
+  function equipPet(petId) {
+    wsSend(`42${requestIdCounter}["setPetFight",{"id":"${petId}"}]`);
+  }
   const equipmentEnhanceTable = {
     atk: {
       1: 2,
@@ -1934,18 +2166,6 @@
       18: 21
     }
   };
-  function equipEquipment(equipmentId) {
-    wsSend(`42${requestIdCounter}["equipAcion",{"id":"${equipmentId}","action":"wear"}]`);
-  }
-  function equipRune(runeId, slot) {
-    wsSend(`42${requestIdCounter}["runeAction",{"id":"${runeId}","action":"wear","index":${slot}}]`);
-  }
-  function unequipRune(runeId) {
-    wsSend(`42${requestIdCounter}["runeAction",{"id":"${runeId}","action":"remove"}]`);
-  }
-  function equipPet(petId) {
-    wsSend(`42${requestIdCounter}["setPetFight",{"id":"${petId}"}]`);
-  }
 
   const characterInfo = {};
 
@@ -2054,6 +2274,8 @@
       // 裂创：暴击时额外真实伤害
       shadowBlade: 0,
       // 影刃：攻击时附加真实伤害
+      burst: 0,
+      // 爆发：未暴击时额外期望
 
       cruel: 0,
       // 残暴：暴击破防
@@ -2061,9 +2283,11 @@
       cruelRatio: 0,
       // 残暴：暴击破防乘子
       cruelRatioRune: 0,
+      segments: [],
+      // 按照血量分段的属性变化
       ignoreSpecials: []
     };
-
+    const suits = [];
     // 装备基础属性
     Object.entries(weaponList).forEach(([weaponType, weapon]) => {
       for (let starType of weapon.starAttrs || []) {
@@ -2077,6 +2301,19 @@
       Object.entries(weapon.origin.attrs.basic).forEach(([attr, val]) => {
         stats[attr] += val;
       });
+      // 判断套装
+      if (weapon.origin.attrs.suit) {
+        const suitName = weapon.origin.attrs.suit.name;
+        const suitEquipIds = weapon.origin.attrs.suit.equipIdList;
+        const equippedIds = Object.values(weaponList).map(w => w.equipId);
+        const hasSuit = suitEquipIds.every(id => equippedIds.includes(id));
+        if (hasSuit && !suits.find(s => s.name === suitName)) {
+          suits.push({
+            name: suitName,
+            ...weapon.origin.attrs.suit.attrs
+          });
+        }
+      }
       // 附魔属性
       if (weapon.enchantAttr) {
         stats.voidDef += weapon.enchantAttr[0] * 10;
@@ -2086,7 +2323,6 @@
       for (let effect of weapon?.darkGoldAttrs?.basic || []) {
         stats[effect[0]] += (effect[1] + 5) * darkGoldData.darkGoldBasicFactor[effect[0]];
       }
-
       // 精造属性
       stats.ad += 0.4 * (weapon.refineAttr?.[0] || 0);
     });
@@ -2138,6 +2374,16 @@
       }
     });
 
+    // 套装效果
+    for (let suit of suits) {
+      Object.entries(suit.basic || {}).forEach(([key, value]) => {
+        stats[key] += value;
+      });
+      for (let effect of suit.affix || []) {
+        weaponSpecialParse(stats, effect);
+      }
+    }
+
     // 临时buff
     for (let buff of characterInfo.temporaryBuff || []) {
       Object.entries(buff.basic || {}).forEach(([attr, val]) => {
@@ -2149,7 +2395,21 @@
     stats.finalAtk = stats.atk * (1 + stats.break / 100);
     // 最终攻速计算
     stats.finalAtksp = (stats.atksp / 100 - 1) * (1 + stats.swiftness) + 1;
-    // 拟合公式
+    stats.dpsRaw = getDps(stats);
+    const segments = segmentsParse(stats);
+    segments.forEach(seg => {
+      seg.dps = getDps(seg);
+    });
+    return {
+      weaponList,
+      fightPet,
+      runeList,
+      relicList,
+      stats,
+      segments
+    };
+  }
+  function getActualAtkSp(stats) {
     if (characterInfo.isAdvance) {
       stats.actualAtksp = stats.finalAtksp;
     } else {
@@ -2159,28 +2419,42 @@
         }
       });
     }
-    stats.dpsRaw = getDps(stats);
-    return {
-      weaponList,
-      fightPet,
-      runeList,
-      relicList,
-      stats
-    };
   }
   function getDps(stats, defense = 0, evasion = 0, antiCrit = 0) {
-    const crt = Math.max(Math.min(stats.crt - antiCrit, 100) / 100, 0);
+    // 最终攻速计算
+    getActualAtkSp(stats);
+
+    // 暴击率
+    let crt = Math.max(Math.min(stats.crt - antiCrit, 100) / 100, 0);
+    crt = crt + (1 - crt) * (stats.burst / 100);
+
+    // 防御计算系数
     const defenseFactor =
     // 非暴击
     150 / (150 + Math.max(defense - stats.heat, 0)) * (1 - crt) +
     // 暴击
     150 / (150 + Math.max(defense * Math.max(1 - stats.cruelRatio / 100, 0) - stats.heat - stats.cruel, 0)) * crt;
-    return stats.actualAtksp * Math.max(Math.min((stats.hr - evasion) / 100, 1), 0) * (
+    const hr = Math.max(Math.min((stats.hr - evasion) / 100, 1), 0);
+    return stats.actualAtksp * hr * (
     // 需要整合防御计算部分
-    defenseFactor * (stats.atk * (1 - crt) + stats.crtd / 100 * stats.atk * crt + stats.split * stats.chasing + stats.split * stats.heavyInjury * crt + stats.split * stats.thump + stats.split * stats.tearInjury) +
+    defenseFactor * (stats.atk * (1 - crt) + stats.crtd / 100 * stats.atk * crt + stats.split * stats.chasing + stats.split * stats.heavyInjury * crt + stats.split * stats.thump + stats.split * stats.tearInjury) * ((1 + stats.sharp / 100) * (
+    // 锋利
+    1 + (stats.harvestRatio || 0) / 100) * (
+    // 收割
+    1 + (stats.impactRatio || 0) / 100) * (
+    // 冲击
+    1 + (stats.assault || 0) / 100) // 冲锋
+    ) + defenseFactor * ((stats.harvest || 0) + (
+    // 收割固定伤害
+    stats.impact || 0) // 冲击固定伤害
+    ) +
     // 真实伤害部分
 
-    stats.split * stats.shadowBlade) * (1 + stats.sharp / 100) * (1 + stats.ad / 100);
+    stats.split * stats.shadowBlade) * (1 + stats.ad / 100)
+    // 怪物麻痹免疫
+    * (1 - (stats.paralysis || 0) * (1 - crt) / 100)
+    // 未命中吸血效果
+    - (stats.monsterLeech || 0) * stats.actualAtksp * (1 - hr);
   }
   function updateCharacterInfoPanelDps() {
     const attrPanel = document.querySelector(".user-attrs");
@@ -2206,6 +2480,7 @@
     characterInfo.relicEquippedList = routine?.relicEquippedList || [];
     characterInfo.parsed = parseCharacterEquipment(characterInfo);
     updateCharacterInfoPanelDps();
+    logMessage(characterInfo.parsed);
     return;
   });
   registSendHookHandler(/\["equipAcion",/, message => {
@@ -2535,27 +2810,30 @@
     }
   }, 1000);
   function parseMonsterInfo(monsterCard) {
-    monsterCard.querySelector('h3').innerText;
+    const monsterName = monsterCard.querySelector('h3').innerText;
     const getP = label => {
       return Array.from(monsterCard.querySelectorAll('p')).find(p => p.innerText.startsWith(label)).innerText.replace(label, '').trim();
     };
-    const hpMax = parseFloat(getP('血量：'));
-    const defense = parseFloat(getP('防御：'));
-    const evasion = parseFloat(getP('闪避率：').replace('%', ''));
-    const antiCrit = parseFloat(getP('抗爆率：').replace('%', ''));
+    const monsterInfo = {
+      name: monsterName,
+      hpMax: parseFloat(getP('血量：')),
+      defense: parseFloat(getP('防御：')),
+      evasion: parseFloat(getP('闪避率：').replace('%', '')),
+      antiCrit: parseFloat(getP('抗爆率：').replace('%', ''))
+    };
     const specials = monsterCard.querySelectorAll('.special');
     const specialList = [];
     const ignoreSpecials = [];
     for (let special of specials) {
       const title = special.innerText;
-      const ability = monsterSpecialAbilities[title];
+      const ability = monsterEffects[title];
       if (ability) {
         specialList.push(ability);
       } else {
         ignoreSpecials.push(title);
       }
     }
-    const timeToKill = calculateMonsterTime(hpMax, defense, evasion, antiCrit);
+    const fightRes = calculateMonsterTime(monsterInfo, specialList);
     let timeElem = monsterCard.querySelector('.monster-time-to-kill');
     if (!timeElem) {
       timeElem = document.createElement('div');
@@ -2563,7 +2841,14 @@
       timeElem.style.marginTop = '8px';
       timeElem.style.fontWeight = 'bold';
     }
-    timeElem.innerHTML = `击杀所需时间: ${timeToKill.toFixed(2)} 秒`;
+    timeElem.innerHTML = `击杀所需时间: ${fightRes.useTime < 0 ? '∞' : fightRes.useTime.toFixed(2)} 秒`;
+    if (fightRes.useTimeSeg.length > 1) {
+      timeElem.innerHTML += fightRes.useTimeSeg.map(seg => {
+        const hpRange = `${seg.prevHpPercent.toFixed(1)}%→${seg.currentHpPercent.toFixed(1)}%`;
+        const time = `${seg.segUseTime < 0 ? '∞' : seg.segUseTime.toFixed(2)}秒`;
+        return `<br><span style="display: inline-block;">${hpRange}</span><span style="float: right;">${time}</span>`;
+      }).join('');
+    }
     if (ignoreSpecials.length > 0) {
       timeElem.innerHTML += `<br>(不考虑 ${ignoreSpecials.join('、')} 特效下)`;
     }
@@ -2572,15 +2857,54 @@
     }
     monsterCard.appendChild(timeElem);
   }
-  function calculateMonsterTime(hpMax, defense, evasion, antiCrit, specials) {
+  function calculateMonsterTime(monsterInfo, specials) {
+    let useTime = 0;
     const stats = characterInfo.parsed.stats;
-    const dps = getDps(stats, defense, evasion, antiCrit);
-    const timeToKill = hpMax / dps;
-    return timeToKill;
+    const monsterHpSegments = [];
+    const useTimeSeg = [];
+    specials.forEach(ability => {
+      ability(stats, monsterHpSegments, monsterInfo);
+    });
+    const segments = segmentsParse(stats, monsterHpSegments);
+    for (let i = 0; i < segments.length; i++) {
+      const seg = segments[i];
+
+      // 计算当前分段的HP百分比范围
+      const currentHpPercent = seg.hpPercent || 0;
+      const prevHpPercent = i > 0 ? segments[i - 1].hpPercent || 100 : 100;
+      const hpPercentDiff = prevHpPercent - currentHpPercent;
+
+      // 计算实际分段HP
+      const segmentHp = monsterInfo.hpMax * (hpPercentDiff / 100);
+
+      // 计算部分特殊效果
+      seg.specialFunc?.forEach(f => f(seg));
+      const dps = getDps(seg, monsterInfo.defense + (seg.monsterDefense || 0), monsterInfo.evasion + (seg.monsterEvasion || 0), monsterInfo.antiCrit + (seg.monsterAntiCrit || 0));
+      const segUseTime = segmentHp / dps;
+      if (dps <= 0) {
+        return {
+          useTime: -1,
+          useTimeSeg: [...useTimeSeg, {
+            currentHpPercent,
+            prevHpPercent,
+            segUseTime: -1
+          }]
+        };
+      } else {
+        useTime += segUseTime;
+        useTimeSeg.push({
+          currentHpPercent,
+          prevHpPercent,
+          segUseTime
+        });
+      }
+    }
+    logMessage(segments);
+    return {
+      useTime,
+      useTimeSeg
+    };
   }
-  const monsterSpecialAbilities = {
-    // '反击': () => {},
-  };
 
   const localEquipmentSet = loadFromLocalStorage("equipmentsSetLocal", {});
   function saveEquipmentSet(name) {

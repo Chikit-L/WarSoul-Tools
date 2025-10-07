@@ -1,50 +1,22 @@
 # WarSoul-Tools
 
-This template should help get you started developing Tampermonkey UserScript.
+当前包含功能:  
 
-- Support ESNext and ES Modules
-- Support CSS Modules and sass, scss, less, stylus
-- Support SVG Sprite
-- Support deal with static resources
-- Support international languages
-- It's build with rollup, thus you can add external plugins to achieve needed helpers
+- 怪物血量变化计算/战斗预测
+- 共斗实际攻速（包含多段攻击）、命中率、暴击率统计
+- 角色装备解析
+- 裸DPS计算
+- 怪物战斗时间预测
+- 自动钓鱼
+- 基于本地存储的装备切换
+- 自动开启组队战斗
 
-## Settings
+## 开发编译
 
-### How to use CSS Processor(sass, scss, less, stylus)?
-
-Install corresponding dependency:
-
-- For Sass install node-sass: yarn add node-sass --dev
-- For Stylus Install stylus: yarn add stylus --dev
-- For Less Install less: yarn add less --dev
-
-That's it, you can now import .styl .scss .sass .less files in your library.
-
-([Follow this guide](https://www.npmjs.com/package/rollup-plugin-postcss/v/2.4.1#with-sassstylusless))
-
-### How to add SVG to Sprite?
-
-Settle the svg file to + `src/svg`folder, and import it to sprite.js.
-
-### How to add plugins to rollup?
-
-Config it in `src/rollup_configs/default.js`.
-
-## Project Setup
+基于 Node 22  
+使用`create-tampermonkey`打包为油猴脚本
 
 ```sh
 npm install
-```
-
-### Watch and Compile for Development
-
-```sh
-npm run dev
-```
-
-### Compile and Minify for Production
-
-```sh
 npm run build
 ```
