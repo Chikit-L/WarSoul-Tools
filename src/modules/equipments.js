@@ -209,6 +209,11 @@ export function mergeHpSegments(hpSegments) {
               merged[bp][k] = (merged[bp][k] || 0) + seg[k];
             } else if (k === 'specialFunc') {
               merged[bp].specialFunc = (merged[bp].specialFunc || []).concat([seg[k]]);
+            } else if (k === 'healPercent' || k === 'healTimes') {
+              // 治疗效果只取一次，不累加
+              if (merged[bp][k] === undefined) {
+                merged[bp][k] = seg[k];
+              }
             } else if (merged[bp][k] === undefined) {
               merged[bp][k] = seg[k];
             }

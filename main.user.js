@@ -2,7 +2,7 @@
 // ==UserScript==
 // @name           WarSoul-Tools
 // @namespace      WarSoul-Tools
-// @version        0.5.0
+// @version        0.5.1
 // @author         BKN46
 // @description    WarSoul实用工具
 // @icon           https://www.milkywayidle.com/favicon.svg
@@ -1785,28 +1785,28 @@
     }
   };
   const monsterEffects = {
-    '求生': (stats, monsterHpSegment, monsterInfo) => {
+    '求生': (stats, monsterHpSegment, monsterInfo, abilityInfo) => {
       monsterHpSegment.push({
-        hpPercent: 10,
+        hpPercent: abilityInfo[1],
         hpPercentType: 'below',
-        monsterEvasion: 60
+        monsterEvasion: abilityInfo[2]
       });
     },
-    '冰霜巫术': (stats, monsterHpSegment, monsterInfo) => {
+    '冰霜巫术': (stats, monsterHpSegment, monsterInfo, abilityInfo) => {
       monsterHpSegment.push({
         hpPercent: 50,
         hpPercentType: 'below',
         monsterLeech: monsterInfo.hpMax * 0.02
       });
     },
-    '冰霜护盾': (stats, monsterHpSegment, monsterInfo) => {
+    '冰霜护盾': (stats, monsterHpSegment, monsterInfo, abilityInfo) => {
       monsterHpSegment.push({
         hpPercent: 50,
         hpPercentType: 'below',
         monsterEvasion: 55
       });
     },
-    '惊骇': (stats, monsterHpSegment, monsterInfo) => {
+    '惊骇': (stats, monsterHpSegment, monsterInfo, abilityInfo) => {
       monsterHpSegment.push({
         hpPercent: 10,
         hpPercentType: 'below',
@@ -1815,44 +1815,52 @@
         }
       });
     },
-    '吸血': (stats, monsterHpSegment, monsterInfo) => {
-      if (monsterInfo.name.includes('吸血鬼王')) {
-        stats.monsterLeech = monsterInfo.hpMax * 0.02;
-      } else if (monsterInfo.name.includes('吸血鬼')) {
-        stats.monsterLeech = monsterInfo.hpMax * 0.01;
-      } else {
-        stats.monsterLeech = monsterInfo.hpMax * 0.02;
-      }
+    '吸血': (stats, monsterHpSegment, monsterInfo, abilityInfo) => {
+      stats.monsterLeech = monsterInfo.hpMax * abilityInfo[2] / 100;
     },
     // TODO: 多段攻击免疫效果优化
-    '反击': (stats, monsterHpSegment, monsterInfo) => {
+    '反击': (stats, monsterHpSegment, monsterInfo, abilityInfo) => {
       stats.split *= 0.7;
     },
-    '恐吓': (stats, monsterHpSegment, monsterInfo) => {
+    '恐吓': (stats, monsterHpSegment, monsterInfo, abilityInfo) => {
       stats.heat *= 0.5;
     },
-    '磐石': (stats, monsterHpSegment, monsterInfo) => {
-      if (monsterInfo.name.includes('金人')) {
-        stats.monsterDefense = 50;
-      } else {
-        stats.monsterDefense = 15;
-      }
+    '磐石': (stats, monsterHpSegment, monsterInfo, abilityInfo) => {
+      stats.monsterDefense = abilityInfo[1] / 100 * abilityInfo[2];
     },
-    '坚韧': (stats, monsterHpSegment, monsterInfo) => {
+    '坚韧': (stats, monsterHpSegment, monsterInfo, abilityInfo) => {
       monsterHpSegment.push({
-        hpPercent: 20,
+        hpPercent: abilityInfo[1] || 20,
         hpPercentType: 'below',
-        monsterDefense: 200
+        monsterDefense: abilityInfo[2] || 200
       });
     },
-    '虚弱': (stats, monsterHpSegment, monsterInfo) => {
+    '无畏': (stats, monsterHpSegment, monsterInfo, abilityInfo) => {
+      monsterHpSegment.push({
+        hpPercent: abilityInfo[1] || 70,
+        hpPercentType: 'below',
+        monsterDefense: abilityInfo[2] || 100
+      });
+    },
+    '虚弱': (stats, monsterHpSegment, monsterInfo, abilityInfo) => {
       stats.atk *= 0.5;
     },
-    '麻痹': (stats, monsterHpSegment, monsterInfo) => {
-      stats.paralysis = 60;
+    '麻痹': (stats, monsterHpSegment, monsterInfo, abilityInfo) => {
+      stats.paralysis = abilityInfo[1];
     },
-    '迟缓': (stats, monsterHpSegment, monsterInfo) => {
-      stats.finalAtksp -= 0.3;
+    '迟缓': (stats, monsterHpSegment, monsterInfo, abilityInfo) => {
+      stats.finalAtksp -= abilityInfo[1] / 100;
+    },
+    '诅咒': (stats, monsterHpSegment, monsterInfo, abilityInfo) => {
+      stats.hr -= abilityInfo[1] / 100;
+    },
+    '修复': (stats, monsterHpSegment, monsterInfo, abilityInfo) => {
+      monsterHpSegment.push({
+        hpPercent: abilityInfo[1],
+        hpPercentType: 'above',
+        healPercent: abilityInfo[2],
+        healTimes: 1
+      });
     }
   };
 
@@ -2062,6 +2070,11 @@
                 merged[bp][k] = (merged[bp][k] || 0) + seg[k];
               } else if (k === 'specialFunc') {
                 merged[bp].specialFunc = (merged[bp].specialFunc || []).concat([seg[k]]);
+              } else if (k === 'healPercent' || k === 'healTimes') {
+                // 治疗效果只取一次，不累加
+                if (merged[bp][k] === undefined) {
+                  merged[bp][k] = seg[k];
+                }
               } else if (merged[bp][k] === undefined) {
                 merged[bp][k] = seg[k];
               }
@@ -2395,10 +2408,13 @@
     stats.finalAtk = stats.atk * (1 + stats.break / 100);
     // 最终攻速计算
     stats.finalAtksp = (stats.atksp / 100 - 1) * (1 + stats.swiftness) + 1;
-    stats.dpsRaw = getDps(stats);
+
+    // 模拟怪物防御
+    const monsterDefense = characterInfo.isAdvance ? 100 : 150;
+    stats.dpsRaw = getDps(stats, monsterDefense);
     const segments = segmentsParse(stats);
     segments.forEach(seg => {
-      seg.dps = getDps(seg);
+      seg.dps = getDps(seg, monsterDefense);
     });
     return {
       weaponList,
@@ -2465,7 +2481,9 @@
       dpsEle.style.fontSize = "14px";
       attrPanel.insertBefore(dpsEle, attrPanel.firstElementChild?.nextElementSibling || attrPanel.firstElementChild);
     }
+    const segDps = characterInfo.parsed.segments.map(seg => `>${seg.hpPercent} ${seg.dps.toFixed(0)}`).join("\n");
     dpsEle.innerText = `裸DPS估算: ${characterInfo.parsed.stats.dpsRaw.toFixed(0)}`;
+    dpsEle.title = `基于当前装备计算的理论DPS\n模拟怪物防御为100/150(进阶前后)\n不考虑怪物特殊属性和技能加成\n进阶前后攻速有差别\n\n分段DPS:\n` + segDps;
   }
   registSendHookHandler(/\["useEquipRoutine",/, message => {
     const obj = parseWSmessage(message);
@@ -2826,9 +2844,21 @@
     const ignoreSpecials = [];
     for (let special of specials) {
       const title = special.innerText;
-      const ability = monsterEffects[title];
-      if (ability) {
-        specialList.push(ability);
+      const abilityInfo = Array.from(special.parentElement.querySelectorAll('span')).map(span => {
+        const text = span.innerText.trim();
+        if (text.endsWith('%')) {
+          return parseFloat(text.replace('%', ''));
+        } else if (!isNaN(parseFloat(text)) && isFinite(text)) {
+          return parseFloat(text);
+        } else {
+          return text;
+        }
+      });
+      if (monsterEffects[title]) {
+        specialList.push({
+          title,
+          abilityInfo
+        });
       } else {
         ignoreSpecials.push(title);
       }
@@ -2859,13 +2889,25 @@
   }
   function calculateMonsterTime(monsterInfo, specials) {
     let useTime = 0;
-    const stats = characterInfo.parsed.stats;
+    const stats = JSON.parse(JSON.stringify(characterInfo.parsed.stats));
     const monsterHpSegments = [];
     const useTimeSeg = [];
-    specials.forEach(ability => {
-      ability(stats, monsterHpSegments, monsterInfo);
+    specials.forEach(special => {
+      monsterEffects[special.title](stats, monsterHpSegments, monsterInfo, special.abilityInfo);
     });
     const segments = segmentsParse(stats, monsterHpSegments);
+
+    // 收集所有治疗效果并追踪触发次数
+    const healEffects = [];
+    segments.forEach(seg => {
+      if (seg.healPercent && seg.healTimes) {
+        healEffects.push({
+          hpPercent: seg.hpPercent,
+          healPercent: seg.healPercent,
+          remainingTimes: seg.healTimes
+        });
+      }
+    });
     for (let i = 0; i < segments.length; i++) {
       const seg = segments[i];
 
@@ -2875,12 +2917,11 @@
       const hpPercentDiff = prevHpPercent - currentHpPercent;
 
       // 计算实际分段HP
-      const segmentHp = monsterInfo.hpMax * (hpPercentDiff / 100);
+      let segmentHp = monsterInfo.hpMax * (hpPercentDiff / 100);
 
       // 计算部分特殊效果
       seg.specialFunc?.forEach(f => f(seg));
       const dps = getDps(seg, monsterInfo.defense + (seg.monsterDefense || 0), monsterInfo.evasion + (seg.monsterEvasion || 0), monsterInfo.antiCrit + (seg.monsterAntiCrit || 0));
-      const segUseTime = segmentHp / dps;
       if (dps <= 0) {
         return {
           useTime: -1,
@@ -2890,14 +2931,24 @@
             segUseTime: -1
           }]
         };
-      } else {
-        useTime += segUseTime;
-        useTimeSeg.push({
-          currentHpPercent,
-          prevHpPercent,
-          segUseTime
-        });
       }
+
+      // 检查是否在这个分段触发治疗
+      const triggeredHeal = healEffects.find(heal => heal.hpPercent === currentHpPercent && heal.remainingTimes > 0);
+      if (triggeredHeal) {
+        // 触发治疗，增加额外的血量
+        const healAmount = monsterInfo.hpMax * (triggeredHeal.healPercent / 100);
+        segmentHp += healAmount;
+        triggeredHeal.remainingTimes--;
+      }
+      const segUseTime = segmentHp / dps;
+      useTime += segUseTime;
+      useTimeSeg.push({
+        currentHpPercent,
+        prevHpPercent,
+        segUseTime,
+        healed: !!triggeredHeal
+      });
     }
     logMessage(segments);
     return {

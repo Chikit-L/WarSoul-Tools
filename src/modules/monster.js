@@ -41,9 +41,21 @@ function parseMonsterInfo(monsterCard) {
   const ignoreSpecials = [];
   for (let special of specials) {
     const title = special.innerText;
-    const ability = monsterEffects[title];
-    if (ability) {
-      specialList.push(ability);
+    const abilityInfo = Array.from(special.parentElement.querySelectorAll('span')).map(span => {
+      const text = span.innerText.trim();
+      if (text.endsWith('%')) {
+        return parseFloat(text.replace('%', ''));
+      } else if (!isNaN(parseFloat(text)) && isFinite(text)) {
+        return parseFloat(text);
+      } else {
+        return text;
+      }
+    });
+    if (monsterEffects[title]) {
+      specialList.push({
+        title,
+        abilityInfo
+      });
     } else {
       ignoreSpecials.push(title);
     }
@@ -79,14 +91,27 @@ function parseMonsterInfo(monsterCard) {
 
 function calculateMonsterTime(monsterInfo, specials) {
   let useTime = 0;
-  const stats = characterInfo.parsed.stats;
+  const stats = JSON.parse(JSON.stringify(characterInfo.parsed.stats));
   const monsterHpSegments = [];
   const useTimeSeg = [];
-  specials.forEach(ability => {
-    ability(stats, monsterHpSegments, monsterInfo);
+  specials.forEach(special => {
+    monsterEffects[special.title](stats, monsterHpSegments, monsterInfo, special.abilityInfo);
   });
 
   const segments = segmentsParse(stats, monsterHpSegments);
+  
+  // 收集所有治疗效果并追踪触发次数
+  const healEffects = [];
+  segments.forEach(seg => {
+    if (seg.healPercent && seg.healTimes) {
+      healEffects.push({
+        hpPercent: seg.hpPercent,
+        healPercent: seg.healPercent,
+        remainingTimes: seg.healTimes
+      });
+    }
+  });
+
   for (let i = 0; i < segments.length; i++) {
     const seg = segments[i];
     
@@ -96,7 +121,7 @@ function calculateMonsterTime(monsterInfo, specials) {
     const hpPercentDiff = prevHpPercent - currentHpPercent;
     
     // 计算实际分段HP
-    const segmentHp = monsterInfo.hpMax * (hpPercentDiff / 100);
+    let segmentHp = monsterInfo.hpMax * (hpPercentDiff / 100);
 
     // 计算部分特殊效果
     seg.specialFunc?.forEach(f => f(seg));
@@ -107,17 +132,31 @@ function calculateMonsterTime(monsterInfo, specials) {
       monsterInfo.evasion + (seg.monsterEvasion || 0),
       monsterInfo.antiCrit + (seg.monsterAntiCrit || 0)
     );
-    const segUseTime = segmentHp / dps;
+    
     if (dps <= 0) {
       return {
         useTime: -1,
         useTimeSeg: [...useTimeSeg, { currentHpPercent, prevHpPercent, segUseTime: -1 }]
       };
-    } else {
-      useTime += segUseTime;
-      useTimeSeg.push({ currentHpPercent, prevHpPercent, segUseTime });
     }
+
+    // 检查是否在这个分段触发治疗
+    const triggeredHeal = healEffects.find(heal => 
+      heal.hpPercent === currentHpPercent && heal.remainingTimes > 0
+    );
+    
+    if (triggeredHeal) {
+      // 触发治疗，增加额外的血量
+      const healAmount = monsterInfo.hpMax * (triggeredHeal.healPercent / 100);
+      segmentHp += healAmount;
+      triggeredHeal.remainingTimes--;
+    }
+
+    const segUseTime = segmentHp / dps;
+    useTime += segUseTime;
+    useTimeSeg.push({ currentHpPercent, prevHpPercent, segUseTime, healed: !!triggeredHeal });
   }
+  
   logMessage(segments);
   return {
     useTime,

@@ -243,11 +243,14 @@ function parseCharacterEquipment(character) {
   // 最终攻速计算
   stats.finalAtksp = (stats.atksp / 100 - 1) * (1 + stats.swiftness) + 1;
 
-  stats.dpsRaw = getDps(stats);
+  // 模拟怪物防御
+  const monsterDefense = characterInfo.isAdvance ? 100 : 150;
+
+  stats.dpsRaw = getDps(stats, monsterDefense);
 
   const segments = segmentsParse(stats);
   segments.forEach(seg => {
-    seg.dps = getDps(seg);
+    seg.dps = getDps(seg, monsterDefense);
   });
 
   return {
@@ -329,7 +332,9 @@ function updateCharacterInfoPanelDps() {
     dpsEle.style.fontSize = "14px";
     attrPanel.insertBefore(dpsEle, attrPanel.firstElementChild?.nextElementSibling || attrPanel.firstElementChild);
   }
+  const segDps = characterInfo.parsed.segments.map(seg => `>${seg.hpPercent} ${seg.dps.toFixed(0)}`).join("\n");
   dpsEle.innerText = `裸DPS估算: ${characterInfo.parsed.stats.dpsRaw.toFixed(0)}`;
+  dpsEle.title = `基于当前装备计算的理论DPS\n模拟怪物防御为100/150(进阶前后)\n不考虑怪物特殊属性和技能加成\n进阶前后攻速有差别\n\n分段DPS:\n` + segDps;
 }
 
 registSendHookHandler(/\["useEquipRoutine",/, (message) => {

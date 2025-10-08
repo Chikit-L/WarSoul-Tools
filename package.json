@@ -1,7 +1,7 @@
 {
   "name": "WarSoul-Tools",
   "author": "BKN46",
-  "version": "0.5.0",
+  "version": "0.5.1",
   "scripts": {
     "dev": "rollup --config --environment BUILD:development --watch",
     "build": "rollup --config && mkdir -p build && cp main.user.js build/WSTools-$npm_package_version.js",

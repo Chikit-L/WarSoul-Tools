@@ -52,61 +52,71 @@ export const runeEffects = {
 }
 
 export const monsterEffects = {
-  '求生': (stats, monsterHpSegment, monsterInfo) => {
+  '求生': (stats, monsterHpSegment, monsterInfo, abilityInfo) => {
     monsterHpSegment.push({
-      hpPercent: 10,
+      hpPercent: abilityInfo[1],
       hpPercentType: 'below',
-      monsterEvasion: 60
+      monsterEvasion: abilityInfo[2]
     });
   },
-  '冰霜巫术': (stats, monsterHpSegment, monsterInfo) => {
+  '冰霜巫术': (stats, monsterHpSegment, monsterInfo, abilityInfo) => {
     monsterHpSegment.push({
       hpPercent: 50,
       hpPercentType: 'below',
       monsterLeech: monsterInfo.hpMax * 0.02
     });
   },
-  '冰霜护盾': (stats, monsterHpSegment, monsterInfo) => {
+  '冰霜护盾': (stats, monsterHpSegment, monsterInfo, abilityInfo) => {
     monsterHpSegment.push({
       hpPercent: 50,
       hpPercentType: 'below',
       monsterEvasion: 55
     });
   },
-  '惊骇': (stats, monsterHpSegment, monsterInfo) => {
+  '惊骇': (stats, monsterHpSegment, monsterInfo, abilityInfo) => {
     monsterHpSegment.push({
       hpPercent: 10,
       hpPercentType: 'below',
       specialFunc: (stats) => { stats.hr -= 50 }
     });
   },
-  '吸血': (stats, monsterHpSegment, monsterInfo) => { 
-    if (monsterInfo.name.includes('吸血鬼王')) {
-      stats.monsterLeech = monsterInfo.hpMax * 0.02;
-    } else if (monsterInfo.name.includes('吸血鬼')) {
-      stats.monsterLeech = monsterInfo.hpMax * 0.01;
-    } else {
-      stats.monsterLeech = monsterInfo.hpMax * 0.02;
-    }
+  '吸血': (stats, monsterHpSegment, monsterInfo, abilityInfo) => { 
+    stats.monsterLeech = monsterInfo.hpMax * abilityInfo[2] / 100;
   },
   // TODO: 多段攻击免疫效果优化
-  '反击': (stats, monsterHpSegment, monsterInfo) => { stats.split *= 0.7 },
-  '恐吓': (stats, monsterHpSegment, monsterInfo) => { stats.heat *= 0.5 },
-  '磐石': (stats, monsterHpSegment, monsterInfo) => {
-    if (monsterInfo.name.includes('金人')) {
-      stats.monsterDefense = 50
-    } else {
-      stats.monsterDefense = 15
-    }
+  '反击': (stats, monsterHpSegment, monsterInfo, abilityInfo) => { stats.split *= 0.7 },
+  '恐吓': (stats, monsterHpSegment, monsterInfo, abilityInfo) => { stats.heat *= 0.5 },
+  '磐石': (stats, monsterHpSegment, monsterInfo, abilityInfo) => {
+    stats.monsterDefense = abilityInfo[1] / 100 * abilityInfo[2]
   },
-  '坚韧': (stats, monsterHpSegment, monsterInfo) => {
+  '坚韧': (stats, monsterHpSegment, monsterInfo, abilityInfo) => {
     monsterHpSegment.push({
-      hpPercent: 20,
+      hpPercent: abilityInfo[1] || 20,
       hpPercentType: 'below',
-      monsterDefense: 200
+      monsterDefense: abilityInfo[2] || 200
     });
   },
-  '虚弱': (stats, monsterHpSegment, monsterInfo) => { stats.atk *= 0.5 },
-  '麻痹': (stats, monsterHpSegment, monsterInfo) => { stats.paralysis = 60 },
-  '迟缓': (stats, monsterHpSegment, monsterInfo) => { stats.finalAtksp -= 0.3 },
+  '无畏': (stats, monsterHpSegment, monsterInfo, abilityInfo) => {
+    monsterHpSegment.push({
+      hpPercent: abilityInfo[1] || 70,
+      hpPercentType: 'below',
+      monsterDefense: abilityInfo[2] || 100
+    });
+  },
+  '虚弱': (stats, monsterHpSegment, monsterInfo, abilityInfo) => { stats.atk *= 0.5 },
+  '麻痹': (stats, monsterHpSegment, monsterInfo, abilityInfo) => { stats.paralysis = abilityInfo[1] },
+  '迟缓': (stats, monsterHpSegment, monsterInfo, abilityInfo) => { stats.finalAtksp -= abilityInfo[1] / 100 },
+  '诅咒': (stats, monsterHpSegment, monsterInfo, abilityInfo) => { stats.hr -= abilityInfo[1] / 100 },
+  '修复': (stats, monsterHpSegment, monsterInfo, abilityInfo) => {
+    monsterHpSegment.push({
+      hpPercent: abilityInfo[1],
+      hpPercentType: 'above',
+      healPercent: abilityInfo[2],
+      healTimes: 1
+    });
+    monsterHpSegment.push({ // 无实际作用，用于显示回血分段
+      hpPercent: abilityInfo[1] + abilityInfo[2],
+      hpPercentType: 'above',
+    });
+  },
 }
