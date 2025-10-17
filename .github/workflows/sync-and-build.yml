@@ -86,7 +86,7 @@ jobs:
         run: |
           # 如果 build/ 在 .gitignore 里，改成强制添加：
           # git add -f ${{ steps.ver.outputs.filepath }}
-          git add ${{ steps.ver.outputs.filepath }} || true
+          git add -f ${{ steps.ver.outputs.filepath }} || true
   
           if git diff --cached --quiet; then
             echo "No changes in build output."
