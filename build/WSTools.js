@@ -1,4 +1,3 @@
-
 // ==UserScript==
 // @name           WarSoul-Tools
 // @namespace      WarSoul-Tools
