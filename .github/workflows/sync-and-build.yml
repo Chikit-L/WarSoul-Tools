@@ -1,4 +1,4 @@
-name: Sync upstream & Build (daily, fixed filename)
+name: Sync upstream & Build (daily, normalize filename)
 
 on:
   workflow_dispatch:
@@ -7,7 +7,7 @@ on:
     - cron: "0 9 * * *"
 
 permissions:
-  contents: write  # 需要写权限才能 push
+  contents: write  # 允许推送到仓库
 
 jobs:
   sync:
@@ -20,7 +20,7 @@ jobs:
 
       - name: Add upstream remote
         run: |
-          # TODO: 替换为真实上游仓库
+          # TODO: 替换为你的上游仓库地址
           git remote add upstream https://github.com/BKN46/WarSoul-Tools.git || true
           git fetch upstream
 
@@ -32,7 +32,6 @@ jobs:
       - name: Push updated main (if any)
         run: |
           git fetch origin main
-          # 只在本地有新提交时才 push
           if git rev-list origin/main..HEAD | grep -q .; then
             git push origin HEAD:main
           else
@@ -46,7 +45,7 @@ jobs:
       - name: Checkout (updated main)
         uses: actions/checkout@v4
         with:
-          fetch-depth: 0  # 为了能够提交回仓库
+          fetch-depth: 0  # 需要完整历史以便提交
 
       - name: Use Node.js
         uses: actions/setup-node@v4
@@ -65,19 +64,29 @@ jobs:
       - name: Build
         run: npm run build
 
-      - name: Set build file path (fixed filename)
-        id: ver
-        run: echo "filepath=build/WSTools.js" >> $GITHUB_OUTPUT
+      # 关键：把带版本号的构建产物复制为固定文件名
+      - name: Normalize filename to build/WSTools.js
+        run: |
+          set -e
+          FILE=$(ls -1 build/WSTools-*.js 2>/dev/null | head -n1 || true)
+          if [ -z "$FILE" ]; then
+            echo "No file matched build/WSTools-*.js"
+            echo "Existing files in build/:"
+            ls -lah build || true
+            exit 1
+          fi
+          echo "Found: $FILE"
+          cp "$FILE" build/WSTools.js
 
       - name: Ensure build output exists
         run: |
           ls -lah build || true
-          test -f "${{ steps.ver.outputs.filepath }}" || (echo "Not found: ${{ steps.ver.outputs.filepath }}" && exit 1)
+          test -f "build/WSTools.js" || (echo "Not found: build/WSTools.js" && exit 1)
 
-      - name: Commit build output to /build
+      - name: Commit build/WSTools.js
         run: |
-          # 如果 .gitignore 忽略了 build/，用 -f 强制加入
-          git add -f "${{ steps.ver.outputs.filepath }}" || true
+          # 如 .gitignore 忽略了 build/，强制加入
+          git add -f build/WSTools.js || true
 
           if git diff --cached --quiet; then
             echo "No changes in build output."
