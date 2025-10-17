@@ -1,4 +1,4 @@
-name: Sync upstream & Build (daily, normalize filename)
+name: Sync upstream & Build (daily, include version in commit)
 
 on:
   workflow_dispatch:
@@ -7,7 +7,7 @@ on:
     - cron: "0 9 * * *"
 
 permissions:
-  contents: write  # 允许推送到仓库
+  contents: write
 
 jobs:
   sync:
@@ -21,7 +21,7 @@ jobs:
       - name: Add upstream remote
         run: |
           # TODO: 替换为你的上游仓库地址
-          git remote add upstream https://github.com/BKN46/WarSoul-Tools.git || true
+          git remote add upstream https://github.com/UPSTREAM_OWNER/UPSTREAM_REPO.git || true
           git fetch upstream
 
       - name: Merge upstream/main -> main (fast-forward if possible)
@@ -45,7 +45,7 @@ jobs:
       - name: Checkout (updated main)
         uses: actions/checkout@v4
         with:
-          fetch-depth: 0  # 需要完整历史以便提交
+          fetch-depth: 0
 
       - name: Use Node.js
         uses: actions/setup-node@v4
@@ -64,19 +64,22 @@ jobs:
       - name: Build
         run: npm run build
 
-      # 关键：把带版本号的构建产物复制为固定文件名
+      # 将生成的带版本号文件复制为固定名称
       - name: Normalize filename to build/WSTools.js
+        id: normalize
         run: |
           set -e
-          FILE=$(ls -1 build/WSTools-*.js 2>/dev/null | head -n1 || true)
+          VERSION=$(node -p "require('./package.json').version")
+          FILE=$(ls -1 build/WSTools-${VERSION}.js 2>/dev/null | head -n1 || true)
           if [ -z "$FILE" ]; then
-            echo "No file matched build/WSTools-*.js"
+            echo "No file matched build/WSTools-${VERSION}.js"
             echo "Existing files in build/:"
             ls -lah build || true
             exit 1
           fi
           echo "Found: $FILE"
           cp "$FILE" build/WSTools.js
+          echo "version=$VERSION" >> $GITHUB_OUTPUT
 
       - name: Ensure build output exists
         run: |
@@ -85,7 +88,6 @@ jobs:
 
       - name: Commit build/WSTools.js
         run: |
-          # 如 .gitignore 忽略了 build/，强制加入
           git add -f build/WSTools.js || true
 
           if git diff --cached --quiet; then
@@ -93,7 +95,8 @@ jobs:
             exit 0
           fi
 
+          VERSION=$(node -p "require('./package.json').version")
           git config user.name "github-actions[bot]"
           git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
-          git commit -m "chore(build): update WSTools.js [skip ci]"
+          git commit -m "chore(build): update WSTools.js for v${VERSION} [skip ci]"
           git push origin HEAD:main
