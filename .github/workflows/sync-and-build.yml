@@ -21,7 +21,7 @@ jobs:
       - name: Add upstream remote
         run: |
           # TODO: 替换为你的上游仓库地址
-          git remote add upstream https://github.com/BKN46/WarSoul-Tools || true
+          git remote add upstream https://github.com/BKN46/WarSoul-Tools.git || true
           git fetch upstream
 
       - name: Merge upstream/main -> main (fast-forward if possible)
@@ -80,6 +80,15 @@ jobs:
           echo "Found: $FILE"
           cp "$FILE" build/WSTools.js
           echo "version=$VERSION" >> $GITHUB_OUTPUT
+          
+        # 去除 WSTools.js 开头的空行
+      - name: Strip leading blank lines
+        run: |
+          # 确保文件存在
+          test -f build/WSTools.js
+          # 删除所有文件开头的空白行，只保留从第一个非空行开始
+          awk 'NF {p=1} p' build/WSTools.js > build/WSTools.tmp && mv build/WSTools.tmp build/WSTools.js
+
 
       - name: Ensure build output exists
         run: |
