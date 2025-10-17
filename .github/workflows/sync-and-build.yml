@@ -22,7 +22,7 @@ jobs:
 
       - name: Add upstream remote
         run: |
-          git remote add upstream https://github.com/UPSTREAM_OWNER/UPSTREAM_REPO.git || true
+          git remote add upstream https://github.com/BKN46/WarSoul-Tools.git || true
           git fetch upstream
 
       - name: Merge upstream/main -> main (fast-forward if possible)
