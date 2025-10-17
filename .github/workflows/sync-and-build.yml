@@ -1,0 +1,98 @@
+name: Sync upstream & Build (daily)
+
+on:
+  workflow_dispatch:
+  schedule:
+    # 每天 09:00 UTC 运行（洛杉矶大致凌晨）
+    - cron: "0 9 * * *"
+
+permissions:
+  contents: write  # 需要写权限才能 push
+
+jobs:
+  sync:
+    runs-on: ubuntu-latest
+    outputs:
+      changed: ${{ steps.changed.outputs.changed }}
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+
+      - name: Add upstream remote
+        run: |
+          git remote add upstream https://github.com/UPSTREAM_OWNER/UPSTREAM_REPO.git || true
+          git fetch upstream
+
+      - name: Merge upstream/main -> main (fast-forward if possible)
+        run: |
+          git checkout main
+          git merge --ff-only upstream/main || (git rebase upstream/main || true)
+
+      - name: Detect changes
+        id: changed
+        run: |
+          git fetch origin main
+          if git rev-list --left-right --count origin/main...HEAD | awk '{exit !($1!="0" || $2!="0")}'; then
+            echo "changed=true" >> $GITHUB_OUTPUT
+          else
+            echo "changed=false" >> $GITHUB_OUTPUT
+          fi
+
+      - name: Push updated main
+        if: steps.changed.outputs.changed == 'true'
+        run: git push origin HEAD:main
+
+  build-and-commit:
+    needs: sync
+    if: needs.sync.outputs.changed == 'true'  # 只有同步有更新才构建/提交
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout (updated main)
+        uses: actions/checkout@v4
+        with:
+          fetch-depth: 0  # 为了能提交回仓库
+
+      - name: Use Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: 20
+          cache: npm
+
+      - name: Install deps
+        run: |
+          if [ -f package-lock.json ]; then
+            npm ci
+          else
+            npm install
+          fi
+
+      - name: Build
+        run: npm run build
+
+      - name: Compute version and expected file
+        id: ver
+        run: |
+          VERSION=$(node -p "require('./package.json').version")
+          echo "version=$VERSION" >> $GITHUB_OUTPUT
+          echo "filepath=build/WSTools-$VERSION.js" >> $GITHUB_OUTPUT
+
+      - name: Fail if build output missing
+        run: |
+          test -f "${{ steps.ver.outputs.filepath }}" || (echo "Not found: ${{ steps.ver.outputs.filepath }}" && exit 1)
+
+      - name: Commit build output to /build
+        run: |
+          # 如果 build/ 在 .gitignore 里，可强制添加：git add -f
+          git add ${{ steps.ver.outputs.filepath }} || true
+          if git diff --cached --quiet; then
+            echo "No changes in build output."
+            exit 0
+          fi
+
+          git config user.name "github-actions[bot]"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+
+          git commit -m "chore(build): update WSTools-${{ steps.ver.outputs.version }}.js [skip ci]"
+          git push origin HEAD:main
