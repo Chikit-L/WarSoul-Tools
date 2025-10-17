@@ -1,4 +1,4 @@
-name: Sync upstream & Build (daily)
+name: Sync upstream & Build (daily, fixed filename)
 
 on:
   workflow_dispatch:
@@ -12,8 +12,6 @@ permissions:
 jobs:
   sync:
     runs-on: ubuntu-latest
-    outputs:
-      changed: ${{ steps.changed.outputs.changed }}
     steps:
       - name: Checkout
         uses: actions/checkout@v4
@@ -22,6 +20,7 @@ jobs:
 
       - name: Add upstream remote
         run: |
+          # TODO: 替换为真实上游仓库
           git remote add upstream https://github.com/BKN46/WarSoul-Tools.git || true
           git fetch upstream
 
@@ -30,21 +29,16 @@ jobs:
           git checkout main
           git merge --ff-only upstream/main || (git rebase upstream/main || true)
 
-      - name: Detect changes
-        id: changed
+      - name: Push updated main (if any)
         run: |
           git fetch origin main
-          if git rev-list --left-right --count origin/main...HEAD | awk '{exit !($1!="0" || $2!="0")}'; then
-            echo "changed=true" >> $GITHUB_OUTPUT
+          # 只在本地有新提交时才 push
+          if git rev-list origin/main..HEAD | grep -q .; then
+            git push origin HEAD:main
           else
-            echo "changed=false" >> $GITHUB_OUTPUT
+            echo "No upstream changes to push."
           fi
 
-      - name: Push updated main
-        if: steps.changed.outputs.changed == 'true'
-        run: git push origin HEAD:main
-
-  # 仍保留前面的 sync job，不变
   build-and-commit:
     needs: sync
     runs-on: ubuntu-latest
@@ -52,14 +46,14 @@ jobs:
       - name: Checkout (updated main)
         uses: actions/checkout@v4
         with:
-          fetch-depth: 0
-  
+          fetch-depth: 0  # 为了能够提交回仓库
+
       - name: Use Node.js
         uses: actions/setup-node@v4
         with:
           node-version: 20
           cache: npm
-  
+
       - name: Install deps
         run: |
           if [ -f package-lock.json ]; then
@@ -67,34 +61,30 @@ jobs:
           else
             npm install
           fi
-  
+
       - name: Build
         run: npm run build
-  
-      - name: Compute version and expected file
+
+      - name: Set build file path (fixed filename)
         id: ver
-        run: |
-          VERSION=$(node -p "require('./package.json').version")
-          echo "version=$VERSION" >> $GITHUB_OUTPUT
-          echo "filepath=build/WSTools-$VERSION.js" >> $GITHUB_OUTPUT
-  
+        run: echo "filepath=build/WSTools.js" >> $GITHUB_OUTPUT
+
       - name: Ensure build output exists
         run: |
+          ls -lah build || true
           test -f "${{ steps.ver.outputs.filepath }}" || (echo "Not found: ${{ steps.ver.outputs.filepath }}" && exit 1)
-  
+
       - name: Commit build output to /build
         run: |
-          # 如果 build/ 在 .gitignore 里，改成强制添加：
-          # git add -f ${{ steps.ver.outputs.filepath }}
-          git add -f ${{ steps.ver.outputs.filepath }} || true
-  
+          # 如果 .gitignore 忽略了 build/，用 -f 强制加入
+          git add -f "${{ steps.ver.outputs.filepath }}" || true
+
           if git diff --cached --quiet; then
             echo "No changes in build output."
             exit 0
           fi
-  
+
           git config user.name "github-actions[bot]"
           git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
-          git commit -m "chore(build): add/update WSTools-${{ steps.ver.outputs.version }}.js [skip ci]"
+          git commit -m "chore(build): update WSTools.js [skip ci]"
           git push origin HEAD:main
-  
